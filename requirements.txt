@@ -1,0 +1,8 @@
+streamli
+pandas
+numpy
+requests
+feedparser
+pillow
+google-generativeai
+pltly
