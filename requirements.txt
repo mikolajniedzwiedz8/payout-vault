@@ -5,4 +5,4 @@ requests
 feedparser
 pillow
 google-generativeai
-pltly
+plotly
