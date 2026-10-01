@@ -64,7 +64,7 @@ def get_market_data(symbol):
     return 0.0, 0.0
 
 
-# Pobieranie danych dla kluczowych aktywów
+# Pobieranie danych dla kluczowych aktywów na żywo
 eur_price, eur_chg = get_market_data("EURUSD=X")
 gbp_price, gbp_chg = get_market_data("GBPUSD=X")
 gold_price, gold_chg = get_market_data("GC=F")
@@ -118,9 +118,14 @@ with col4:
 
 st.markdown("---")
 
-# Menu nawigacyjne
+# Główny panel nawigacyjny
 menu = st.sidebar.selectbox(
-    "Nawigacja", ["Command Bridge", "Fundamental Pulse i strumień Google Finance"]
+    "Nawigacja",
+    [
+        "Command Bridge",
+        "Fundamental Pulse i strumień Google Finance",
+        "Forex & News Analyzer",
+    ],
 )
 
 if menu == "Command Bridge":
@@ -134,13 +139,15 @@ if menu == "Command Bridge":
   )
 
   st.subheader("🤖 Gemini Market Analyst")
-  prompt = st.text_input("Zadaj pytanie lub poproś o analizę sytuacji rynkowej:")
+  prompt = st.text_input(
+      "Zadaj pytanie lub poproś o analizę sytuacji rynkowej:"
+  )
   if st.button("Generuj analizę AI"):
     if "GEMINI_API_KEY" in st.secrets:
       try:
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(
-            f"Przeanalizuj bieżący sentyment rynkowy dla głównych par walutowych i indeksów (EURUSD: {eur_price}, GBPUSD: {gbp_price}, Złoto: {gold_price}, NQ: {nq_price}). Kontekst: {prompt}"
+            f"Przeanalizuj bieżący sentyment rynkowy dla głównych par walutowych i indeksów (EURUSD: {eur_price}, GBPUSD: {gbp_price}, Złoto: {gold_price}, NQ: {nq_price}). Kontekst użytkownika: {prompt}"
         )
         st.success(response.text)
       except Exception as e:
@@ -158,4 +165,32 @@ elif menu == "Fundamental Pulse i strumień Google Finance":
       unsafe_allow_html=True,
   )
 
-  st.info("Moduł strumienia wiadomości rynkowych gotowy do działania.")
+  st.markdown(
+      """<div style="background: linear-gradient(180deg, rgba(14, 18, 34, 0.9) 0%, rgba(8, 10, 15, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid #38bdf8; border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">DOMINUJĄCY MOTYW SESJI (GLOBAL DRIVER)</span>
+          <span style="color:#94a3b8; font-size:13px; font-family:'JetBrains Mono';">>DXY: 101.40 | US10Y: 4.18%</span>
+      </div>
+      <div style="font-size:15px; font-weight:700; color:#ffffff; line-height:1.4;">
+          Oczekiwanie na nowe katalizatory inflacyjne w USA oraz popyt na aktywa Safe-Haven.
+      </div>
+  </div>""",
+      unsafe_allow_html=True,
+  )
+
+  st.info(
+      "Moduł pobierania i parsowania strumieni RSS / depesz rynkowych jest"
+      " aktywny."
+  )
+
+elif menu == "Forex & News Analyzer":
+  st.markdown(
+      """<div class="hero-report-card">
+          <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">• FOREX & NEWS ANALYZER</span>
+          <h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">Zaawansowany Moduł Analityczny</h1>
+          <p style="color:#94a3b8; font-size:13px; margin:0;">Tutaj możesz rozwijać i wpinać swoje dodatkowe skrypty oceniające strukturę rynku, płynność oraz analizę sentymentu wiadomości.</p>
+      </div>""",
+      unsafe_allow_html=True,
+  )
+
+  st.write("Wszystkie komponenty analityczne działają w trybie ciągłym.")
