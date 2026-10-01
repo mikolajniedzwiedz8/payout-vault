@@ -118,13 +118,14 @@ with col4:
 
 st.markdown("---")
 
-# Główny panel nawigacyjny
+# Główny panel nawigacyjny ze wszystkimi modułami i strategią
 menu = st.sidebar.selectbox(
     "Nawigacja",
     [
         "Command Bridge",
-        "Fundamental Pulse i strumień Google Finance",
-        "Forex & News Analyzer",
+        "C.E.T. Framework (Elite Strategy V2)",
+        "Fundamental Pulse i strumień",
+        "Risk & Payout Manager",
     ],
 )
 
@@ -147,7 +148,7 @@ if menu == "Command Bridge":
       try:
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(
-            f"Przeanalizuj bieżący sentyment rynkowy dla głównych par walutowych i indeksów (EURUSD: {eur_price}, GBPUSD: {gbp_price}, Złoto: {gold_price}, NQ: {nq_price}). Kontekst użytkownika: {prompt}"
+            f"Przeanalizuj bieżący sentyment pod C.E.T. Framework (Elite Strategy V2). Ceny: EURUSD: {eur_price}, GBPUSD: {gbp_price}, Złoto: {gold_price}, NQ: {nq_price}. Zapytanie: {prompt}"
         )
         st.success(response.text)
       except Exception as e:
@@ -155,12 +156,33 @@ if menu == "Command Bridge":
     else:
       st.warning("Brak skonfigurowanego klucza GEMINI_API_KEY w Secrets!")
 
-elif menu == "Fundamental Pulse i strumień Google Finance":
+elif menu == "C.E.T. Framework (Elite Strategy V2)":
+  st.markdown(
+      """<div class="hero-report-card">
+          <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">• STRATEGY ENGINE</span>
+          <h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">C.E.T. Framework (Elite Strategy V2)</h1>
+          <p style="color:#94a3b8; font-size:13px; margin:0;">Moduł analizy płynności, sweepów oraz zarządzania wielkością pozycji po stratach z rzędu.</p>
+      </div>""",
+      unsafe_allow_html=True,
+  )
+
+  st.info(
+      "C.E.T. Framework jest aktywny. Kontroluj zasady redukcji wielkości"
+      " pozycji i analizę struktury rynku."
+  )
+
+  col_a, col_b = st.columns(2)
+  with col_a:
+    st.metric("Status strategii", "Gotowość do sesji / Oczekiwanie na Setup")
+  with col_b:
+    st.metric("Zasada 2-3 strat", "Ochrona kapitału / Redukcja pozycji")
+
+elif menu == "Fundamental Pulse i strumień":
   st.markdown(
       """<div class="hero-report-card">
           <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">• REAL-TIME GOOGLE FINANCE INTELLIGENCE</span>
-          <h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">Fundamental Pulse & Google Finance Stream</h1>
-          <p style="color:#94a3b8; font-size:13px; margin:0;">Agregacja depesz wprost ze strumieni <b>Google Finance</b> (Reuters, Bloomberg, FT) dedykowana wyłącznie dla <b>EURUSD</b>, <b>XAUUSD</b> oraz <b>GBPUSD</b>.</p>
+          <h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">Fundamental Pulse & Stream</h1>
+          <p style="color:#94a3b8; font-size:13px; margin:0;">Agregacja depesz wprost ze strumieni <b>Google Finance</b> dedykowana dla EURUSD, XAUUSD oraz GBPUSD.</p>
       </div>""",
       unsafe_allow_html=True,
   )
@@ -178,19 +200,13 @@ elif menu == "Fundamental Pulse i strumień Google Finance":
       unsafe_allow_html=True,
   )
 
-  st.info(
-      "Moduł pobierania i parsowania strumieni RSS / depesz rynkowych jest"
-      " aktywny."
-  )
-
-elif menu == "Forex & News Analyzer":
+elif menu == "Risk & Payout Manager":
   st.markdown(
       """<div class="hero-report-card">
-          <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">• FOREX & NEWS ANALYZER</span>
-          <h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">Zaawansowany Moduł Analityczny</h1>
-          <p style="color:#94a3b8; font-size:13px; margin:0;">Tutaj możesz rozwijać i wpinać swoje dodatkowe skrypty oceniające strukturę rynku, płynność oraz analizę sentymentu wiadomości.</p>
+          <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">• PROP & PAYOUT TRACKING</span>
+          <h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">Zarządzanie Kapitałem i Wypłatami</h1>
+          <p style="color:#94a3b8; font-size:13px; margin:0;">Moduł kontroli kont ewaluacyjnych i celów finansowych.</p>
       </div>""",
       unsafe_allow_html=True,
   )
-
-  st.write("Wszystkie komponenty analityczne działają w trybie ciągłym.")
+  st.success("Moduł ewaluacyjny i dziennik wypłat gotowy do pracy.")
