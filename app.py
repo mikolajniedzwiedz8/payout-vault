@@ -317,7 +317,6 @@ yield_p, yield_c = get_market_data("^TNX")
 
 # --- FUNKCJE POMOCNICZE DANYCH ---
 def get_forex_calendar():
-  """Pobiera kalendarz wydarzeń makroekonomicznych z Forex Factory"""
   try:
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     r = requests.get(
@@ -331,7 +330,6 @@ def get_forex_calendar():
 
 
 def get_google_finance_news(query):
-  """Pobiera najświeższe depesze bezpośrednio z silnika Google Finance dla danego aktywa"""
   try:
     encoded_query = requests.utils.quote(f"{query} when:2d")
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
@@ -360,7 +358,6 @@ def get_google_finance_news(query):
 
 
 def get_rss_with_images(url):
-  """Pobiera wiadomości ze zdjęciami z kanałów RSS z nagłówkiem anty-blokującym"""
   try:
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     r = requests.get(url, headers=headers, timeout=6)
@@ -399,9 +396,7 @@ def render_delta(val):
   elif val < 0:
     return f'<span class="tape-delta-down">{val:.2f}% ▼</span>'
   else:
-    return (
-        '<span class="tape-symbol" style="color:#94a3b8;">0.00%</span>'
-    )
+    return '<span class="tape-symbol" style="color:#94a3b8;">0.00%</span>'
 
 
 st.markdown(
@@ -423,7 +418,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- PANEL BOCZNY (KAFLOWE MENU NA PRZYCISKACH) ---
+# --- PANEL BOCZNY ---
 if "current_tab" not in st.session_state:
   st.session_state["current_tab"] = (
       "Taktyczny terminal na żywo i interfejs HUD mapy"
@@ -714,7 +709,7 @@ Precyzyjna dekonstrukcja struktury rynkowej C.E.T., absorpcji w strefach <b>D1 S
                     2. Wymóg zamknięcia korpusem (Body Close) po sweepie płynności sesyjnej.
 
                     Sformatuj w 4 sekcjach Markdown:
-                    ### 1. 🏛️️ MECHANIKA D1 HTF & ABSORPCJA
+                    ### 1. 🏛 MECHANIKA D1 HTF & ABSORPCJA
                     ### 2. 🧭 FAZA 30M ORDER FLOW & BIAS
                     ### 3. 🎯 TAKTYKA EGZEKUCYJNA (LONDON / NY PLAYBOOK)
                     ### 4. ⚖️ WERDYKT KIERUNKOWY (BUY / SELL / STAND DOWN)
@@ -743,7 +738,7 @@ Precyzyjna dekonstrukcja struktury rynkowej C.E.T., absorpcji w strefach <b>D1 S
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# MODUŁ 3: FUNDAMENTAL PULSE
+# MODUŁ 3: FUNDAMENTAL PULSE (DYNAMIECZNE STATUSY RYNKOWE)
 # ==============================================================================
 elif menu == "🌐 Fundamental Pulse i strumień Google Finance":
   st.markdown(
@@ -751,7 +746,7 @@ elif menu == "🌐 Fundamental Pulse i strumień Google Finance":
 <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">● REAL-TIME GOOGLE FINANCE INTELLIGENCE</span>
 <h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">Fundamental Pulse & Google Finance Stream</h1>
 <p style="color:#94a3b8; font-size:13px; margin:0;">
-Agregacja depesz wprost ze strumieni <b>Google Finance</b> (Reuters, Bloomberg, FT) dedykowana wyłącznie dla <b>EURUSD</b>, <b>XAUUSD</b> oraz <b>GBPUSD</b>.
+Agregacja depesz wprost ze strumieni <b>Google Finance</b> (Reuters, Bloomberg, FT) dedykowana dla <b>EURUSD</b>, <b>XAUUSD</b> oraz <b>GBPUSD</b>.
 </p>
 </div>""",
       unsafe_allow_html=True,
@@ -779,6 +774,36 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
 </div>""",
       unsafe_allow_html=True,
   )
+
+
+  # Funkcja wyznaczająca dynamiczny status w zależności od zmiany procentowej
+  def get_market_badge(chg):
+    if chg > 0.05:
+      return (
+          "▲ BULLISH / POPYT",
+          "rgba(16, 185, 129, 0.18)",
+          "#34d399",
+          "rgba(52, 211, 153, 0.6)",
+      )
+    elif chg < -0.05:
+      return (
+          "▼ BEARISH / SPRZEDAŻ",
+          "rgba(239, 68, 68, 0.18)",
+          "#f87171",
+          "rgba(248, 113, 113, 0.6)",
+      )
+    else:
+      return (
+          "◆ RANGE / WYCZEKIWANIE",
+          "rgba(245, 158, 11, 0.18)",
+          "#fbbf24",
+          "rgba(251, 191, 36, 0.6)",
+      )
+
+
+  eur_txt, eur_bg_b, eur_col_b, eur_border_b = get_market_badge(eur_c)
+  gold_txt, gold_bg_b, gold_col_b, gold_border_b = get_market_badge(gold_c)
+  gbp_txt, gbp_bg_b, gbp_col_b, gbp_border_b = get_market_badge(gbp_c)
 
   col_eur, col_xau, col_gbp = st.columns(3)
 
@@ -808,20 +833,16 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
 <div>
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
 <span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">EURUSD</span>
-<span style="background:rgba(245, 158, 11, 0.18); color:#fbbf24; border:1px solid rgba(251, 191, 36, 0.6); padding:5px 12px; border-radius:20px; font-size:12px; font-weight:800; font-family:'JetBrains Mono'; box-shadow:0 0 12px rgba(245, 158, 11, 0.25);">◆ RANGE / WYCZEKIWANIE</span>
+<span style="background:{eur_bg_b}; color:{eur_col_b}; border:1px solid {eur_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{eur_txt}</span>
 </div>
 <div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{eur_p:.4f}</div>
-<div style="font-size:11px; color:#10b981; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{eur_c:+.2f}% sesja dzisiejsza</div>
+<div style="font-size:11px; color:{"#10b981" if eur_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{eur_c:+.2f}% dzisiaj</div>
 <div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
 {eur_news_html}
 </div>
-<div style="background: linear-gradient(180deg, rgba(56, 189, 248, 0.14) 0%, rgba(10, 16, 30, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.45); border-left: 5px solid #38bdf8; border-radius: 8px; padding: 14px 16px; margin-top: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
-<div style="color:#38bdf8; font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-<span style="font-size:14px;">⚡</span> KATALIZATOR SESJI // C.E.T. PLAYBOOK
-</div>
-<div style="color:#ffffff; font-size:14px; font-weight:700; line-height:1.5; font-family:'Plus Jakarta Sans', sans-serif;">
-Cena w konsolidacji D1. Poluj na sweep Asian Low przed otwarciem kasowym o 08:15 UK.
-</div>
+<div style="background: linear-gradient(180deg, rgba(56, 189, 248, 0.14) 0%, rgba(10, 16, 30, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.45); border-left: 5px solid #38bdf8; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
+<div style="color:#38bdf8; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
+<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Reakcja ceny na aktualne przepływy zleceń (Order Flow) i strefy D1.</div>
 </div>
 </div>""",
         unsafe_allow_html=True,
@@ -853,20 +874,16 @@ Cena w konsolidacji D1. Poluj na sweep Asian Low przed otwarciem kasowym o 08:15
 <div>
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
 <span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">XAUUSD (ZŁOTO)</span>
-<span style="background:rgba(168, 85, 247, 0.18); color:#34d399; border:1px solid rgba(52, 211, 153, 0.6); padding:5px 12px; border-radius:20px; font-size:12px; font-weight:800; font-family:'JetBrains Mono'; box-shadow:0 0 12px rgba(16, 185, 129, 0.25);">▲ BULLISH / POPYT</span>
+<span style="background:{gold_bg_b}; color:{gold_col_b}; border:1px solid {gold_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{gold_txt}</span>
 </div>
 <div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{gold_p:.2f}</div>
-<div style="font-size:11px; color:#10b981; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gold_c:+.2f}% sesja dzisiejsza</div>
+<div style="font-size:11px; color:{"#10b981" if gold_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gold_c:+.2f}% dzisiaj</div>
 <div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
 {gold_news_html}
 </div>
-<div style="background: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, rgba(26, 18, 10, 0.95) 100%); border: 1px solid rgba(245, 158, 11, 0.45); border-left: 5px solid #fbbf24; border-radius: 8px; padding: 14px 16px; margin-top: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
-<div style="color:#fbbf24; font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-<span style="font-size:14px;">⚡</span> KATALIZATOR SESJI // C.E.T. PLAYBOOK
-</div>
-<div style="color:#ffffff; font-size:14px; font-weight:700; line-height:1.5; font-family:'Plus Jakarta Sans', sans-serif;">
-Silny popyt instytucjonalny. Korekty w discount są natychmiast skupowane.
-</div>
+<div style="background: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, rgba(26, 18, 10, 0.95) 100%); border: 1px solid rgba(245, 158, 11, 0.45); border-left: 5px solid #fbbf24; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
+<div style="color:#fbbf24; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
+<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Monitorowanie płynności instytucjonalnej oraz poziomów stop loss.</div>
 </div>
 </div>""",
         unsafe_allow_html=True,
@@ -898,20 +915,16 @@ Silny popyt instytucjonalny. Korekty w discount są natychmiast skupowane.
 <div>
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
 <span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">GBPUSD</span>
-<span style="background:rgba(168, 85, 247, 0.18); color:#c084fc; border:1px solid rgba(192, 132, 252, 0.6); padding:5px 12px; border-radius:20px; font-size:12px; font-weight:800; font-family:'JetBrains Mono'; box-shadow:0 0 12px rgba(168, 85, 247, 0.25);">▲ LEKKO BYCZY (BULL)</span>
+<span style="background:{gbp_bg_b}; color:{gbp_col_b}; border:1px solid {gbp_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{gbp_txt}</span>
 </div>
 <div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{gbp_p:.4f}</div>
-<div style="font-size:11px; color:#10b981; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gbp_c:+.2f}% sesja dzisiejsza</div>
+<div style="font-size:11px; color:{"#10b981" if gbp_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gbp_c:+.2f}% dzisiaj</div>
 <div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
 {gbp_news_html}
 </div>
-<div style="background: linear-gradient(180deg, rgba(168, 85, 247, 0.14) 0%, rgba(20, 12, 30, 0.95) 100%); border: 1px solid rgba(168, 85, 247, 0.45); border-left: 5px solid #a855f7; border-radius: 8px; padding: 14px 16px; margin-top: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
-<div style="color:#c084fc; font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-<span style="font-size:14px;">⚡</span> KATALIZATOR SESJI // C.E.T. PLAYBOOK
-</div>
-<div style="color:#ffffff; font-size:14px; font-weight:700; line-height:1.5; font-family:'Plus Jakarta Sans', sans-serif;">
-Wsparcie ze strony jastrzębiego tonu BoE. Szukaj modelu London Type 1 po zebraniu płynności.
-</div>
+<div style="background: linear-gradient(180deg, rgba(168, 85, 247, 0.14) 0%, rgba(20, 12, 30, 0.95) 100%); border: 1px solid rgba(168, 85, 247, 0.45); border-left: 5px solid #a855f7; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
+<div style="color:#c084fc; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
+<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Zarządzanie pozycją w oparciu o aktualne zmienne makro.</div>
 </div>
 </div>""",
         unsafe_allow_html=True,
@@ -953,8 +966,7 @@ Wsparcie ze strony jastrzębiego tonu BoE. Szukaj modelu London Type 1 po zebran
 
   if st.session_state.get("macro_digest"):
     st.markdown(
-        f"""<style>
-        </style><div style="background: rgba(9, 11, 20, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-top: 2px solid #38bdf8; border-radius: 8px; padding: 22px; margin-top: 18px;">
+        f"""<div style="background: rgba(9, 11, 20, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-top: 2px solid #38bdf8; border-radius: 8px; padding: 22px; margin-top: 18px;">
         <span style="font-size:11px; font-weight:800; color:#38bdf8; text-transform:uppercase;">AI MACRO PULSE SUMMARY</span>
         """,
         unsafe_allow_html=True,
@@ -963,7 +975,7 @@ Wsparcie ze strony jastrzębiego tonu BoE. Szukaj modelu London Type 1 po zebran
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# MODUŁ 4: INSPEKTOR WIZJI
+# POZOSTAŁE MODUŁY (INSPEKTOR, DZIENNIK, TRACK RECORD, KURLY, KALENDARZ, ETC.)
 # ==============================================================================
 elif menu == "👁️ Inspektor wykresów wizji AI":
   st.markdown(
@@ -1028,9 +1040,6 @@ elif menu == "👁️ Inspektor wykresów wizji AI":
     st.markdown(st.session_state["vision_report"])
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ==============================================================================
-# MODUŁ 5: TRADING JOURNAL
-# ==============================================================================
 elif menu == "Dziennik handlowy":
   st.title("📖 Tactical Trading Journal & Multi-Chart Vault")
   st.caption(
@@ -1080,7 +1089,7 @@ elif menu == "Dziennik handlowy":
         )
 
       uploaded_imgs = st.file_uploader(
-          "Załącz zrzuty ekranu wykresu (zaznacz kilka plików naraz)",
+          "Załącz zrzuty ekranu wykresu",
           type=["png", "jpg", "jpeg", "webp"],
           accept_multiple_files=True,
       )
@@ -1149,7 +1158,6 @@ elif menu == "Dziennik handlowy":
       st.dataframe(df_trades[pola], use_container_width=True)
       st.markdown("---")
       for idx, row in df_trades.iloc[::-1].iterrows():
-        trade_id = row["id"]
         with st.expander(
             f"{row['data']} | {row['instrument']} {row['kierunek']} — Wynik:"
             f" {row['wynik_r']} R ({row['status']})"
@@ -1176,9 +1184,6 @@ elif menu == "Dziennik handlowy":
             else:
               st.caption("Brak załączonych zrzutów ekranu.")
 
-# ==============================================================================
-# MODUŁ 6: TRACK RECORD & KALENDARZ FIOLETOWO-ZIELONY/CZERWONY
-# ==============================================================================
 elif menu == "Krzywa kapitału (Netto R)":
   st.markdown(
       """<div class="hero-report-card">
@@ -1194,9 +1199,7 @@ elif menu == "Krzywa kapitału (Netto R)":
     df_trades["wynik_r"] = pd.to_numeric(df_trades["wynik_r"], errors="coerce")
     df_trades = df_trades.dropna(subset=["wynik_r"])
 
-  is_demo = False
   if df_trades.empty or len(df_trades) == 0:
-    is_demo = True
     np.random.seed(42)
     demo_dates = pd.date_range(end=datetime.now(), periods=45, freq="B")
     demo_models = np.random.choice(
@@ -1233,10 +1236,6 @@ elif menu == "Krzywa kapitału (Netto R)":
             value=0.08,
             step=0.01,
             format="%.2f",
-            help=(
-                "Dla konta $10k i ryzyka 0.5% ($50) przy SL 8 pipsów, prowizja"
-                " $6/lot wynosi ok. 0.08 R."
-            ),
         )
         if uwzglednij_prowizje
         else 0.0
@@ -1245,18 +1244,6 @@ elif menu == "Krzywa kapitału (Netto R)":
   df_analysis["datetime"] = pd.to_datetime(
       df_analysis["data"], errors="coerce"
   ).fillna(pd.to_datetime(datetime.now()))
-  dni_map = {
-      0: "1. Poniedziałek",
-      1: "2. Wtorek",
-      2: "3. Środa",
-      3: "4. Czwartek",
-      4: "5. Piątek",
-  }
-  df_analysis["dzien_tygodnia"] = df_analysis["datetime"].dt.dayofweek.map(
-      dni_map
-  )
-  df_analysis = df_analysis.dropna(subset=["dzien_tygodnia"])
-
   r_gross_series = df_analysis["wynik_r"].dropna().values
   r_net_series = r_gross_series - koszt_prowizji_r
   r_active = r_net_series if uwzglednij_prowizje else r_gross_series
@@ -1305,35 +1292,22 @@ elif menu == "Krzywa kapitału (Netto R)":
           x=list(range(1, total_trades + 1)),
           y=np.cumsum(r_gross_series),
           mode="lines",
-          name="Gross R (Wykres)",
+          name="Gross R",
           line=dict(color="rgba(56, 189, 248, 0.45)", width=1.5, dash="dot"),
       ))
       fig_equity.add_trace(go.Scatter(
           x=list(range(1, total_trades + 1)),
           y=np.cumsum(r_net_series),
           mode="lines+markers",
-          name="Net R (Realne konto)",
+          name="Net R",
           line=dict(
               color="#10b981" if total_r_net >= 0 else "#ef4444", width=2.5
           ),
-          marker=dict(size=5),
-          fill="tozeroy",
-          fillcolor=(
-              "rgba(16, 185, 129, 0.06)"
-              if total_r_net >= 0
-              else "rgba(239, 68, 68, 0.06)"
-          ),
       ))
       fig_equity.update_layout(
-          title=f"Porównanie Krzywej: Gross vs Realny Net R ({total_trades} pozycji)",
           paper_bgcolor="rgba(0,0,0,0)",
           plot_bgcolor="rgba(8, 10, 18, 0.8)",
-          font=dict(color="#94a3b8", family="Plus Jakarta Sans"),
-          xaxis=dict(gridcolor="#1e2638", showgrid=True, title="Numer Zlecenia"),
-          yaxis=dict(
-              gridcolor="#1e2638", showgrid=True, title="Skumulowany Wynik (R)"
-          ),
-          margin=dict(l=20, r=20, t=50, b=20),
+          font=dict(color="#94a3b8"),
           height=420,
       )
       st.plotly_chart(fig_equity, use_container_width=True)
@@ -1395,22 +1369,18 @@ elif menu == "Krzywa kapitału (Netto R)":
               has_trades = True
               dr = daily_stats[c_date]["r"]
               w_sum += dr
-              if dr > 0:
-                bg_style = (
-                    "background: rgba(16, 185, 129, 0.12); border: 2px solid"
-                    " rgba(52, 211, 153, 0.7);"
-                )
-                text_color = "#34d399"
-              else:
-                bg_style = (
-                    "background: rgba(239, 68, 68, 0.12); border: 2px solid"
-                    " rgba(248, 113, 113, 0.7);"
-                )
-                text_color = "#f87171"
+              text_color = "#34d399" if dr > 0 else "#f87171"
+              bg_style = (
+                  "background: rgba(16, 185, 129, 0.12); border: 2px solid"
+                  " rgba(52, 211, 153, 0.7);"
+                  if dr > 0
+                  else "background: rgba(239, 68, 68, 0.12); border: 2px solid"
+                  " rgba(248, 113, 113, 0.7);"
+              )
 
               st.markdown(
                   f"""
-                            <div style='{bg_style} border-radius:8px; height:75px; padding:8px; text-align:center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                            <div style='{bg_style} border-radius:8px; height:75px; padding:8px; text-align:center;'>
                                 <div style='font-size:10px; color:#94a3b8; font-weight:700;'>{d_num}</div>
                                 <div style='color:{text_color}; font-weight:800; font-family:JetBrains Mono; font-size:15px; margin-top:6px;'>{dr:+.2f}R</div>
                             </div>
@@ -1426,25 +1396,19 @@ elif menu == "Krzywa kapitału (Netto R)":
                             """,
                   unsafe_allow_html=True,
               )
-
       with w_cols[5]:
         if has_trades:
-          if w_sum > 0:
-            w_bg = (
-                "background: rgba(16, 185, 129, 0.15); border: 2px solid"
-                " rgba(52, 211, 153, 0.8);"
-            )
-            w_color = "#34d399"
-          else:
-            w_bg = (
-                "background: rgba(239, 68, 68, 0.15); border: 2px solid"
-                " rgba(248, 113, 113, 0.8);"
-            )
-            w_color = "#f87171"
-
+          w_color = "#34d399" if w_sum > 0 else "#f87171"
+          w_bg = (
+              "background: rgba(16, 185, 129, 0.15); border: 2px solid"
+              " rgba(52, 211, 153, 0.8);"
+              if w_sum > 0
+              else "background: rgba(239, 68, 68, 0.15); border: 2px solid"
+              " rgba(248, 113, 113, 0.8);"
+          )
           st.markdown(
               f"""
-                    <div style='{w_bg} border-radius:8px; height:75px; padding:8px; text-align:center; box-shadow: 0 4px 14px rgba(0,0,0,0.4);'>
+                    <div style='{w_bg} border-radius:8px; height:75px; padding:8px; text-align:center;'>
                         <span style='font-size:9px; color:#cbd5e1; font-weight:800; text-transform:uppercase;'>Tydzień #{w_idx+1}</span>
                         <div style='color:{w_color}; font-weight:800; font-family:JetBrains Mono; font-size:16px; margin-top:4px;'>{w_sum:+.2f}R</div>
                     </div>
@@ -1461,13 +1425,11 @@ elif menu == "Krzywa kapitału (Netto R)":
     target_r = st.number_input("Cel Payoutu (w R)", value=10.0)
     dd_limit_r = st.number_input("Limit Drawdownu (w R)", value=4.0)
     horyzont = st.slider("Liczba pozycji w teście", 20, 100, 50)
-
     sims = np.zeros((500, horyzont))
     for i in range(500):
       sims[i, :] = np.cumsum(
           np.random.choice(r_active, size=horyzont, replace=True)
       )
-
     fig_mc = go.Figure()
     for i in range(30):
       fig_mc.add_trace(go.Scatter(
@@ -1476,14 +1438,6 @@ elif menu == "Krzywa kapitału (Netto R)":
           line=dict(color="rgba(148, 163, 184, 0.1)", width=1),
           showlegend=False,
       ))
-    fig_mc.add_hline(
-        y=target_r, line_color="#10b981", annotation_text=f"Target +{target_r}R"
-    )
-    fig_mc.add_hline(
-        y=-dd_limit_r,
-        line_color="#ef4444",
-        annotation_text=f"Max DD -{dd_limit_r}R",
-    )
     fig_mc.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(8, 10, 18, 0.8)",
@@ -1492,9 +1446,6 @@ elif menu == "Krzywa kapitału (Netto R)":
     )
     st.plotly_chart(fig_mc, use_container_width=True)
 
-# ==============================================================================
-# MODUŁ 7: KURSY NA DZIŚ
-# ==============================================================================
 elif menu == "Kursy na dziś":
   st.markdown(
       """<div class="hero-report-card">
@@ -1504,7 +1455,6 @@ elif menu == "Kursy na dziś":
 </div>""",
       unsafe_allow_html=True,
   )
-
   o1, o2 = st.columns(2)
   with o1:
     st.markdown(
@@ -1523,22 +1473,14 @@ elif menu == "Kursy na dziś":
         unsafe_allow_html=True,
     )
 
-# ==============================================================================
-# MODUŁ 8: FOREX FACTORY CALENDAR
-# ==============================================================================
 elif menu == "Kalendarz Forex Factory":
   st.title("📅 Kalendarz Forex Factory")
-  st.caption(
-      "Filtrowanie wydarzeń o wysokim wpływie na zmienność (High Impact News)"
-  )
-
   events = get_forex_calendar()
   today_str = datetime.now().strftime("%Y-%m-%d")
   filtered = [
       ev for ev in events if "date" in ev and ev["date"].startswith(today_str)
   ]
   display_data = filtered if filtered else events[:25]
-
   for ev in display_data:
     impact = ev.get("impact", "Low")
     curr = ev.get("country", "")
@@ -1549,7 +1491,6 @@ elif menu == "Kalendarz Forex Factory":
         else "Cały dzień"
     )
     color = "#ef4444" if impact == "High" else "#f59e0b"
-
     st.markdown(
         f"""
         <div style="background:rgba(9, 11, 20, 0.85); border:1px solid rgba(255,255,255,0.06); border-left:3px solid {color}; border-radius:6px; padding:12px; margin-bottom:8px;">
@@ -1561,16 +1502,8 @@ elif menu == "Kalendarz Forex Factory":
         unsafe_allow_html=True,
     )
 
-# ==============================================================================
-# MODUŁ 9: LIVE NEWS & CNBC FEED
-# ==============================================================================
 elif menu == "Wiadomości na żywo i CNBC":
   st.title("📰 Wiadomości na żywo i CNBC")
-  st.caption(
-      "Strumień nagłówków na żywo wraz z miniaturami fotograficznymi prosto z"
-      " rynków finansowych"
-  )
-
   col_a, col_b = st.columns(2)
   with col_a:
     st.subheader("🇺🇸 US Markets & Geopolityka")
@@ -1591,9 +1524,6 @@ elif menu == "Wiadomości na żywo i CNBC":
                 """,
             unsafe_allow_html=True,
         )
-    else:
-      st.info("Pobieranie najświeższych depesz ze strumienia...")
-
   with col_b:
     st.subheader("📈 Gospodarka & Banki Centralne")
     m_feed = get_rss_with_images(
@@ -1613,5 +1543,3 @@ elif menu == "Wiadomości na żywo i CNBC":
                 """,
             unsafe_allow_html=True,
         )
-    else:
-      st.info("Pobieranie najświeższych depesz ze strumienia...")
