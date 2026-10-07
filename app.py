@@ -1,6 +1,7 @@
 import calendar
 from datetime import datetime
 import os
+import time
 from zoneinfo import ZoneInfo
 import feedparser
 import google.generativeai as genai
@@ -20,7 +21,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- BEZPIECZNE POBIERANIE KLUCZA API ---
+# --- BEZPIECZNE POBIERANIE KLUCZA API (Z SEKRETÓW STREAMLITA LUB LOKALNIE) ---
 try:
   GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 except Exception:
@@ -28,6 +29,7 @@ except Exception:
 
 
 def get_clean_gemini_key():
+  """Pobiera klucz API bez spacji i prefiksów"""
   key = str(globals().get("GEMINI_API_KEY", "")).strip()
   if "TUTAJ_" in key or not key:
     key = ""
@@ -35,6 +37,7 @@ def get_clean_gemini_key():
 
 
 def get_gemini_model():
+  """Dynamiczne wykrywanie i inicjalizacja najnowszego modelu Gemini Flash"""
   klucz = get_clean_gemini_key()
   if not klucz or len(klucz) < 15:
     return None, "Brak klucza API w sekretach Streamlit"
@@ -89,68 +92,198 @@ if not os.path.exists(JOURNAL_FILE):
   ])
   df_init.to_csv(JOURNAL_FILE, index=False)
 
-# --- STYLE CSS ---
+# --- STYLE CSS (LUXURY FINTECH & SIDEBAR TILE BUTTONS) ---
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
-    [data-testid="stHeader"], section.main, .block-container { background: transparent !important; }
-    html, body, [class*="css"], .stApp {
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
-        color: #d1d5eb;
+
+    [data-testid="stHeader"], 
+    section.main, 
+    .block-container {
+        background: transparent !important;
     }
+
+    html, body, [class*="css"], .stApp {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        color: #d1d5eb;
+        letter-spacing: -0.01em;
+        -webkit-font-smoothing: antialiased;
+    }
+
     .stApp, [data-testid="stAppViewContainer"] {
         background-color: #070712 !important;
-        background-image: linear-gradient(180deg, #06060f 0%, #090918 100%) !important;
+        background-image: 
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Cg stroke='%238a80d4' stroke-width='1' stroke-opacity='0.22' fill='%239d94eb'%3E%3Cline x1='80' y1='100' x2='150' y2='270'/%3E%3Cline x1='150' y1='270' x2='240' y2='340'/%3E%3Cline x1='240' y1='340' x2='200' y2='480'/%3E%3Cline x1='240' y1='340' x2='380' y2='220'/%3E%3Cline x1='200' y1='480' x2='340' y2='520'/%3E%3Cline x1='340' y1='520' x2='240' y2='340'/%3E%3Cline x1='380' y1='220' x2='460' y2='110'/%3E%3Cline x1='150' y1='270' x2='380' y2='220' stroke-opacity='0.12'/%3E%3Ccircle cx='80' cy='100' r='2.5'/%3E%3Ccircle cx='150' cy='270' r='3.2'/%3E%3Ccircle cx='240' cy='340' r='3.5'/%3E%3Ccircle cx='200' cy='480' r='3'/%3E%3Ccircle cx='340' cy='520' r='2.5'/%3E%3Ccircle cx='380' cy='220' r='3.2'/%3E%3Ccircle cx='460' cy='110' r='2'/%3E%3Ccircle cx='530' cy='390' r='2.5'/%3E%3Ccircle cx='60' cy='430' r='2'/%3E%3C/g%3E%3C/svg%3E"),
+            radial-gradient(circle at 10% 15%, rgba(65, 50, 120, 0.28) 0%, transparent 50%),
+            radial-gradient(circle at 85% 80%, rgba(45, 35, 95, 0.25) 0%, transparent 55%),
+            linear-gradient(180deg, #06060f 0%, #090918 100%) !important;
+        background-size: 600px 600px, 100% 100%, 100% 100%, 100% 100% !important;
+        animation: plexusFloat 40s ease-in-out infinite alternate !important;
     }
+
+    @keyframes plexusFloat {
+        0% { background-position: 0px 0px, 0% 0%, 0% 0%; }
+        50% { background-position: 45px 30px, 0% 0%, 0% 0%; }
+        100% { background-position: -30px 50px, 0% 0%, 0% 0%; }
+    }
+
+    .stApp::before {
+        content: " ";
+        position: fixed;
+        top: 0; left: 0; bottom: 0; right: 0;
+        background: linear-gradient(rgba(138, 128, 212, 0.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(138, 128, 212, 0.04) 1px, transparent 1px);
+        background-size: 50px 50px;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    h1 { font-size: 26px !important; font-weight: 800 !important; color: #ffffff !important; letter-spacing: -0.03em !important; }
+    h2, h3, h4 { font-weight: 700 !important; color: #f1f5f9 !important; }
+
+    /* PANEL BOCZNY */
     section[data-testid="stSidebar"] {
         background: #04050a !important;
         border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
         padding-top: 14px;
     }
+
     .brand-header {
-        display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #ffffff;
-        padding: 0 4px 16px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 800;
+        color: #ffffff;
+        letter-spacing: 0.05em;
+        padding: 0 4px 16px 4px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        margin-bottom: 16px;
     }
     .brand-sparkle { color: #818cf8; font-size: 15px; }
-    .stSidebar [data-testid="stButton"] { margin-bottom: -8px !important; }
+
+    /* KAFELKI MENU BOCZNEGO */
+    .stSidebar [data-testid="stButton"] {
+        margin-bottom: -8px !important;
+    }
+
     .stSidebar [data-testid="stButton"] > button {
-        width: 100% !important; text-align: left !important; justify-content: flex-start !important;
-        border-radius: 8px !important; padding: 10px 14px !important; font-size: 13px !important; font-weight: 600 !important;
+        width: 100% !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        display: flex !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.01em !important;
+        transition: all 0.2s ease-in-out !important;
     }
+
     .stSidebar [data-testid="stButton"] > button[kind="secondary"] {
-        background: rgba(255, 255, 255, 0.02) !important; border: 1px solid rgba(255, 255, 255, 0.07) !important; color: #94a3b8 !important;
+        background: rgba(255, 255, 255, 0.02) !important;
+        border: 1px solid rgba(255, 255, 255, 0.07) !important;
+        border-left: 4px solid transparent !important;
+        color: #94a3b8 !important;
+        box-shadow: none !important;
     }
+
+    .stSidebar [data-testid="stButton"] > button[kind="secondary"]:hover {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border-color: rgba(192, 132, 252, 0.35) !important;
+        color: #f8fafc !important;
+        transform: translateX(3px) !important;
+    }
+
     .stSidebar [data-testid="stButton"] > button[kind="primary"] {
         background: linear-gradient(90deg, rgba(168, 85, 247, 0.22) 0%, rgba(20, 14, 38, 0.95) 100%) !important;
-        border: 1px solid rgba(192, 132, 252, 0.7) !important; border-left: 5px solid #c084fc !important; color: #ffffff !important;
+        border: 1px solid rgba(192, 132, 252, 0.7) !important;
+        border-left: 5px solid #c084fc !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        box-shadow: 0 0 18px rgba(168, 85, 247, 0.35) !important;
+        transform: none !important;
     }
-    .tape-headline { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; color: #64748b; text-transform: uppercase; margin-bottom: 8px; }
+
+    /* THE TAPE */
+    .tape-headline {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
     .tape-container {
-        display: flex; justify-content: space-between; background: rgba(10, 12, 22, 0.75);
-        border-top: 1px solid rgba(255, 255, 255, 0.06); border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        padding: 12px 6px; margin-bottom: 24px; overflow-x: auto;
+        display: flex;
+        justify-content: space-between;
+        background: rgba(10, 12, 22, 0.75);
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 12px 6px;
+        margin-bottom: 24px;
+        overflow-x: auto;
+        backdrop-filter: blur(10px);
     }
-    .tape-col { display: flex; flex-direction: column; align-items: flex-start; padding: 0 14px; min-width: 95px; border-right: 1px solid rgba(255, 255, 255, 0.04); }
+    .tape-col {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 0 14px;
+        min-width: 95px;
+        border-right: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .tape-col:last-child { border-right: none; }
     .tape-symbol { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; }
     .tape-price { font-size: 15px; font-weight: 700; color: #ffffff; font-family: 'JetBrains Mono', monospace !important; margin: 2px 0 1px 0; }
     .tape-delta-up { font-size: 11px; font-weight: 600; color: #10b981; font-family: 'JetBrains Mono', monospace !important; }
     .tape-delta-down { font-size: 11px; font-weight: 600; color: #ef4444; font-family: 'JetBrains Mono', monospace !important; }
+
+    /* KARTY ZEGARÓW */
+    .terminal-clock-card {
+        background: rgba(11, 13, 24, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 8px;
+        padding: 14px;
+        text-align: center;
+    }
+    .clock-city { font-size: 11px; color: #8da2c0; font-weight: 700; letter-spacing: 1px; }
+    .clock-time { font-size: 24px; font-weight: 800; color: #ffffff; margin: 4px 0; font-family: 'JetBrains Mono', monospace !important; }
+    .clock-status { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; display: inline-block; }
+    .status-open { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .status-closed { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
+    .status-pre { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+
     .hero-report-card {
-        background: rgba(9, 11, 20, 0.9); border: 1px solid rgba(255, 255, 255, 0.06);
-        border-top: 2px solid #38bdf8; border-left: 2px solid #38bdf8; border-radius: 8px; padding: 22px; margin-bottom: 22px;
+        background: rgba(9, 11, 20, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-top: 2px solid #38bdf8;
+        border-left: 2px solid #38bdf8;
+        border-radius: 8px;
+        padding: 22px;
+        margin-bottom: 22px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
+
     .gf-card {
-        background: rgba(11, 14, 25, 0.9); border: 1px solid rgba(255, 255, 255, 0.07);
-        border-radius: 8px; padding: 18px; margin-bottom: 14px;
+        background: rgba(11, 14, 25, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 8px;
+        padding: 18px;
+        margin-bottom: 14px;
     }
+
+    .odds-matrix-card { border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+    .card-cyan { background: rgba(10, 15, 28, 0.9); border: 1px solid rgba(56, 189, 248, 0.35); border-top: 3px solid #38bdf8; }
+    .card-emerald { background: rgba(8, 20, 18, 0.9); border: 1px solid rgba(16, 185, 129, 0.35); border-top: 3px solid #10b981; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
 
-# --- POBIERANIE CEN RYNKOWYCH ---
+# --- FUNKCJE POBIERANIA CEN NA ŻYWO Z YAHOO FINANCE ---
 def get_market_data(symbol):
   try:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
@@ -170,6 +303,7 @@ def get_market_data(symbol):
     return 0.0, 0.0
 
 
+# Pobieranie rzeczywistych danych rynkowych dla paska The Tape
 eur_p, eur_c = get_market_data("EURUSD=X")
 gbp_p, gbp_c = get_market_data("GBPUSD=X")
 gold_p, gold_c = get_market_data("GC=F")
@@ -182,36 +316,9 @@ vix_p, vix_c = get_market_data("^VIX")
 yield_p, yield_c = get_market_data("^TNX")
 
 
-def render_delta(val):
-  if val > 0:
-    return f'<span class="tape-delta-up">+{val:.2f}% ▲</span>'
-  elif val < 0:
-    return f'<span class="tape-delta-down">{val:.2f}% ▼</span>'
-  else:
-    return '<span class="tape-symbol" style="color:#94a3b8;">0.00%</span>'
-
-
-st.markdown(
-    f"""
-<div class="tape-headline">THE TAPE // LIVE ASSETS</div>
-<div class="tape-container">
-    <div class="tape-col"><span class="tape-symbol">EURUSD</span><span class="tape-price">{eur_p:.4f}</span>{render_delta(eur_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">GBPUSD</span><span class="tape-price">{gbp_p:.4f}</span>{render_delta(gbp_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">XAUUSD</span><span class="tape-price">{gold_p:.2f}</span>{render_delta(gold_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">NASDAQ</span><span class="tape-price">{nq_p:.2f}</span>{render_delta(nq_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">OIL</span><span class="tape-price">{oil_p:.2f}</span>{render_delta(oil_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">DXY</span><span class="tape-price">{dxy_p:.2f}</span>{render_delta(dxy_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">S&P 500</span><span class="tape-price">{sp_p:.2f}</span>{render_delta(sp_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">BTC</span><span class="tape-price">{btc_p:,.0f}</span>{render_delta(btc_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">VIX</span><span class="tape-price">{vix_p:.2f}</span>{render_delta(vix_c)}</div>
-    <div class="tape-col"><span class="tape-symbol">10Y</span><span class="tape-price">{yield_p:.2f}%</span>{render_delta(yield_c)}</div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
-
 # --- FUNKCJE POMOCNICZE DANYCH ---
 def get_forex_calendar():
+  """Pobiera kalendarz wydarzeń makroekonomicznych z Forex Factory"""
   try:
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     r = requests.get(
@@ -225,6 +332,7 @@ def get_forex_calendar():
 
 
 def get_google_finance_news(query):
+  """Pobiera najświeższe depesze bezpośrednio z silnika Google Finance dla danego aktywa"""
   try:
     encoded_query = requests.utils.quote(f"{query} when:2d")
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
@@ -253,6 +361,7 @@ def get_google_finance_news(query):
 
 
 def get_rss_with_images(url):
+  """Pobiera wiadomości ze zdjęciami z kanałów RSS z nagłówkiem anty-blokującym"""
   try:
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     r = requests.get(url, headers=headers, timeout=6)
@@ -284,7 +393,36 @@ def get_rss_with_images(url):
     return []
 
 
-# --- PANEL BOCZNY ---
+# --- THE TAPE (DYNAMICZNE CENY NA ŻYWO) ---
+def render_delta(val):
+  if val > 0:
+    return f'<span class="tape-delta-up">+{val:.2f}% ▲</span>'
+  elif val < 0:
+    return f'<span class="tape-delta-down">{val:.2f}% ▼</span>'
+  else:
+    return '<span class="tape-symbol" style="color:#94a3b8;">0.00%</span>'
+
+
+st.markdown(
+    f"""
+<div class="tape-headline">THE TAPE // LIVE ASSETS (REAL-TIME YAHWATCH)</div>
+<div class="tape-container">
+    <div class="tape-col"><span class="tape-symbol">EURUSD</span><span class="tape-price">{eur_p:.4f}</span>{render_delta(eur_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">GBPUSD</span><span class="tape-price">{gbp_p:.4f}</span>{render_delta(gbp_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">XAUUSD (ZŁOTO)</span><span class="tape-price">{gold_p:.2f}</span>{render_delta(gold_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">NASDAQ 100</span><span class="tape-price">{nq_p:.2f}</span>{render_delta(nq_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">CRUDE OIL</span><span class="tape-price">{oil_p:.2f}</span>{render_delta(oil_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">DOLLAR DXY</span><span class="tape-price">{dxy_p:.2f}</span>{render_delta(dxy_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">S&P 500</span><span class="tape-price">{sp_p:.2f}</span>{render_delta(sp_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">BITCOIN</span><span class="tape-price">{btc_p:,.0f}</span>{render_delta(btc_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">VIX INDEX</span><span class="tape-price">{vix_p:.2f}</span>{render_delta(vix_c)}</div>
+    <div class="tape-col"><span class="tape-symbol">10Y YIELD</span><span class="tape-price">{yield_p:.2f}%</span>{render_delta(yield_c)}</div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+# --- PANEL BOCZNY (KAFLOWE MENU NA PRZYCISKACH) ---
 if "current_tab" not in st.session_state:
   st.session_state["current_tab"] = (
       "Taktyczny terminal na żywo i interfejs HUD mapy"
@@ -333,6 +471,26 @@ with st.sidebar:
   lot_size = kwota_ryzyka / (sl_pips * 10) if sl_pips > 0 else 0
   prowizja_usd = lot_size * 6.0
   prowizja_r = prowizja_usd / kwota_ryzyka if kwota_ryzyka > 0 else 0
+
+  st.markdown(
+      f"""
+    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px; margin-top:8px;">
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:#94a3b8; margin-bottom:4px;">
+            <span>BUDŻET 1R:</span>
+            <span style="color:#ef4444; font-weight:700; font-family:'JetBrains Mono';">${kwota_ryzyka:.2f}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:#94a3b8; margin-bottom:4px;">
+            <span>POZYCJA LOT:</span>
+            <span style="color:#38bdf8; font-weight:700; font-family:'JetBrains Mono';">{lot_size:.2f} Lot</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:#94a3b8;">
+            <span>PROWIZJA RT:</span>
+            <span style="color:#f59e0b; font-weight:700; font-family:'JetBrains Mono';">-${prowizja_usd:.2f} ({prowizja_r:.2f}R)</span>
+        </div>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
 
 # ==============================================================================
 # MODUŁ 1: TERMINAL & CHART
@@ -584,7 +742,7 @@ Precyzyjna dekonstrukcja struktury rynkowej C.E.T., absorpcji w strefach <b>D1 S
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# MODUŁ 3: FUNDAMENTAL PULSE & GOOGLE FINANCE STREAM (DYNAMICZNY)
+# MODUŁ 3: FUNDAMENTAL PULSE (Z DYNAMICZNYM BADGEM I SENTYMENTEM)
 # ==============================================================================
 elif menu == "🌐 Fundamental Pulse i strumień Google Finance":
   st.markdown(
@@ -592,7 +750,7 @@ elif menu == "🌐 Fundamental Pulse i strumień Google Finance":
 <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">● REAL-TIME GOOGLE FINANCE INTELLIGENCE</span>
 <h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">Fundamental Pulse & Google Finance Stream</h1>
 <p style="color:#94a3b8; font-size:13px; margin:0;">
-Agregacja depesz wprost ze strumieni <b>Google Finance</b> (Reuters, Bloomberg, FT) dedykowana dla <b>EURUSD</b>, <b>XAUUSD</b> oraz <b>GBPUSD</b>.
+Agregacja depesz wprost ze strumieni <b>Google Finance</b> (Reuters, Bloomberg, FT) dedykowana wyłącznie dla <b>EURUSD</b>, <b>XAUUSD</b> oraz <b>GBPUSD</b>.
 </p>
 </div>""",
       unsafe_allow_html=True,
@@ -606,10 +764,10 @@ Agregacja depesz wprost ze strumieni <b>Google Finance</b> (Reuters, Bloomberg, 
     gf_gbp = get_google_finance_news('GBPUSD OR "GBP/USD" OR "Bank of England"')
 
   st.markdown(
-      """<div style="background: linear-gradient(180deg, rgba(14, 18, 34, 0.9) 0%, rgba(8, 10, 20, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid #38bdf8; border-radius: 8px; padding: 18px; margin-bottom: 20px;">
+      f"""<div style="background: linear-gradient(180deg, rgba(14, 18, 34, 0.9) 0%, rgba(8, 10, 20, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid #38bdf8; border-radius: 8px; padding: 18px; margin-bottom: 20px;">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
 <span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">DOMINUJĄCY MOTYW SESJI (GLOBAL DRIVER)</span>
-<span style="color:#94a3b8; font-size:11px; font-family:'JetBrains Mono';">DXY: 101.40 | US10Y: 4.18%</span>
+<span style="color:#94a3b8; font-size:11px; font-family:'JetBrains Mono';">DXY: {dxy_p:.2f} | US10Y: {yield_p:.2f}%</span>
 </div>
 <div style="font-size:15px; font-weight:700; color:#ffffff; line-height:1.4;">
 Oczekiwanie na nowe katalizatory inflacyjne w USA oraz popyt na aktywa Safe-Haven.
@@ -622,6 +780,7 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
   )
 
 
+  # Logika dynamicznego wykrywania sentymentu
   def get_market_badge(chg):
     if chg > 0.05:
       return (
@@ -629,6 +788,7 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
           "rgba(16, 185, 129, 0.18)",
           "#34d399",
           "rgba(52, 211, 153, 0.6)",
+          "rgba(16, 185, 129, 0.25)",
       )
     elif chg < -0.05:
       return (
@@ -636,6 +796,7 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
           "rgba(239, 68, 68, 0.18)",
           "#f87171",
           "rgba(248, 113, 113, 0.6)",
+          "rgba(239, 68, 68, 0.25)",
       )
     else:
       return (
@@ -643,12 +804,13 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
           "rgba(245, 158, 11, 0.18)",
           "#fbbf24",
           "rgba(251, 191, 36, 0.6)",
+          "rgba(245, 158, 11, 0.25)",
       )
 
 
-  eur_txt, eur_bg_b, eur_col_b, eur_border_b = get_market_badge(eur_c)
-  gold_txt, gold_bg_b, gold_col_b, gold_border_b = get_market_badge(gold_c)
-  gbp_txt, gbp_bg_b, gbp_col_b, gbp_border_b = get_market_badge(gbp_c)
+  eur_badge, eur_bg, eur_col, eur_bdr, eur_shd = get_market_badge(eur_c)
+  gold_badge, gold_bg, gold_col, gold_bdr, gold_shd = get_market_badge(gold_c)
+  gbp_badge, gbp_bg, gbp_col, gbp_bdr, gbp_shd = get_market_badge(gbp_c)
 
   col_eur, col_xau, col_gbp = st.columns(3)
 
@@ -678,16 +840,20 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
 <div>
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
 <span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">EURUSD</span>
-<span style="background:{eur_bg_b}; color:{eur_col_b}; border:1px solid {eur_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{eur_txt}</span>
+<span style="background:{eur_bg}; color:{eur_col}; border:1px solid {eur_bdr}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono'; box-shadow:0 0 12px {eur_shd};">{eur_badge}</span>
 </div>
 <div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{eur_p:.4f}</div>
-<div style="font-size:11px; color:{"#10b981" if eur_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{eur_c:+.2f}% dzisiaj</div>
+<div style="font-size:11px; color:{"#10b981" if eur_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{eur_c:+.2f}% sesja dzisiejsza</div>
 <div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
 {eur_news_html}
 </div>
-<div style="background: linear-gradient(180deg, rgba(56, 189, 248, 0.14) 0%, rgba(10, 16, 30, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.45); border-left: 5px solid #38bdf8; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
-<div style="color:#38bdf8; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
-<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Reakcja ceny na aktualne przepływy zleceń (Order Flow) i strefy D1.</div>
+<div style="background: linear-gradient(180deg, rgba(56, 189, 248, 0.14) 0%, rgba(10, 16, 30, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.45); border-left: 5px solid #38bdf8; border-radius: 8px; padding: 14px 16px; margin-top: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
+<div style="color:#38bdf8; font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+<span style="font-size:14px;">⚡</span> KATALIZATOR SESJI // C.E.T. PLAYBOOK
+</div>
+<div style="color:#ffffff; font-size:14px; font-weight:700; line-height:1.5; font-family:'Plus Jakarta Sans', sans-serif;">
+{'Cena w konsolidacji D1. Poluj na sweep Asian Low przed otwarciem kasowym o 08:15 UK.' if abs(eur_c) <= 0.05 else ('Nacisk podażowy w strefie sell. Szukaj reakcji na odrzucenie płynności.' if eur_c < -0.05 else 'Impuls popytowy. Obserwuj reakcję na strefy wyższego rzędu D1.')}
+</div>
 </div>
 </div>""",
         unsafe_allow_html=True,
@@ -719,16 +885,20 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
 <div>
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
 <span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">XAUUSD (ZŁOTO)</span>
-<span style="background:{gold_bg_b}; color:{gold_col_b}; border:1px solid {gold_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{gold_txt}</span>
+<span style="background:{gold_bg}; color:{gold_col}; border:1px solid {gold_bdr}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono'; box-shadow:0 0 12px {gold_shd};">{gold_badge}</span>
 </div>
 <div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{gold_p:.2f}</div>
-<div style="font-size:11px; color:{"#10b981" if gold_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gold_c:+.2f}% dzisiaj</div>
+<div style="font-size:11px; color:{"#10b981" if gold_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gold_c:+.2f}% sesja dzisiejsza</div>
 <div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
 {gold_news_html}
 </div>
-<div style="background: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, rgba(26, 18, 10, 0.95) 100%); border: 1px solid rgba(245, 158, 11, 0.45); border-left: 5px solid #fbbf24; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
-<div style="color:#fbbf24; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
-<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Monitorowanie płynności instytucjonalnej oraz poziomów stop loss.</div>
+<div style="background: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, rgba(26, 18, 10, 0.95) 100%); border: 1px solid rgba(245, 158, 11, 0.45); border-left: 5px solid #fbbf24; border-radius: 8px; padding: 14px 16px; margin-top: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
+<div style="color:#fbbf24; font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+<span style="font-size:14px;">⚡</span> KATALIZATOR SESJI // C.E.T. PLAYBOOK
+</div>
+<div style="color:#ffffff; font-size:14px; font-weight:700; line-height:1.5; font-family:'Plus Jakarta Sans', sans-serif;">
+Silny popyt instytucjonalny. Korekty w discount są natychmiast skupowane.
+</div>
 </div>
 </div>""",
         unsafe_allow_html=True,
@@ -760,16 +930,20 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
 <div>
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
 <span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">GBPUSD</span>
-<span style="background:{gbp_bg_b}; color:{gbp_col_b}; border:1px solid {gbp_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{gbp_txt}</span>
+<span style="background:{gbp_bg}; color:{gbp_col}; border:1px solid {gbp_bdr}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono'; box-shadow:0 0 12px {gbp_shd};">{gbp_badge}</span>
 </div>
 <div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{gbp_p:.4f}</div>
-<div style="font-size:11px; color:{"#10b981" if gbp_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gbp_c:+.2f}% dzisiaj</div>
+<div style="font-size:11px; color:{"#10b981" if gbp_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gbp_c:+.2f}% sesja dzisiejsza</div>
 <div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
 {gbp_news_html}
 </div>
-<div style="background: linear-gradient(180deg, rgba(168, 85, 247, 0.14) 0%, rgba(20, 12, 30, 0.95) 100%); border: 1px solid rgba(168, 85, 247, 0.45); border-left: 5px solid #a855f7; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
-<div style="color:#c084fc; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
-<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Zarządzanie pozycją w oparciu o aktualne zmienne makro.</div>
+<div style="background: linear-gradient(180deg, rgba(168, 85, 247, 0.14) 0%, rgba(20, 12, 30, 0.95) 100%); border: 1px solid rgba(168, 85, 247, 0.45); border-left: 5px solid #a855f7; border-radius: 8px; padding: 14px 16px; margin-top: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">
+<div style="color:#c084fc; font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+<span style="font-size:14px;">⚡</span> KATALIZATOR SESJI // C.E.T. PLAYBOOK
+</div>
+<div style="color:#ffffff; font-size:14px; font-weight:700; line-height:1.5; font-family:'Plus Jakarta Sans', sans-serif;">
+Wsparcie ze strony jastrzębiego tonu BoE. Szukaj modelu London Type 1 po zebraniu płynności.
+</div>
 </div>
 </div>""",
         unsafe_allow_html=True,
@@ -820,7 +994,7 @@ Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Re
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# MODUŁ 4: INSPEKTOR WIZJI AI
+# MODUŁ 4: INSPEKTOR WIZJI
 # ==============================================================================
 elif menu == "👁️ Inspektor wykresów wizji AI":
   st.markdown(
@@ -886,7 +1060,7 @@ elif menu == "👁️ Inspektor wykresów wizji AI":
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# MODUŁ 5: DZIENNIK HANDLOWY (Z NOTATKAMI, SCREENAMI I EDYCJĄ)
+# MODUŁ 5: TRADING JOURNAL (Z PODGLĄDEM NOTATEK, SCREENÓW I FORMULARZEM EDYCJI)
 # ==============================================================================
 elif menu == "Dziennik handlowy":
   st.title("📖 Tactical Trading Journal & Multi-Chart Vault")
@@ -895,10 +1069,7 @@ elif menu == "Dziennik handlowy":
       " edycja/korekta błędów"
   )
 
-  tab1, tab2 = st.tabs([
-      "➕ Dodaj nową pozycję",
-      "📜 Historia, Notatki & Edycja (Vault)",
-  ])
+  tab1, tab2 = st.tabs(["➕ Dodaj nową pozycję", "📜 Historia Transakcji & Edycja"])
 
   with tab1:
     with st.form("new_trade_form", clear_on_submit=True):
@@ -941,11 +1112,14 @@ elif menu == "Dziennik handlowy":
         )
 
       uploaded_imgs = st.file_uploader(
-          "Załącz zrzuty ekranu wykresu",
+          "Załącz zrzuty ekranu wykresu (zaznacz kilka plików naraz)",
           type=["png", "jpg", "jpeg", "webp"],
           accept_multiple_files=True,
       )
-      t_notes = st.text_area("Notatki z egzekucji")
+      t_notes = st.text_area(
+          "Notatki z egzekucji",
+          placeholder="Wejście po sweepie 1 odchylenia o 08:15...",
+      )
 
       save_btn = st.form_submit_button("ZAPISZ TRANSAKCJĘ DO BAZY")
       if save_btn:
@@ -983,13 +1157,11 @@ elif menu == "Dziennik handlowy":
             [df_curr, pd.DataFrame([new_row])], ignore_index=True
         )
         df_upd.to_csv(JOURNAL_FILE, index=False)
-        st.success("Transakcja zapisana pomyślnie!")
+        st.success(f"Transakcja zapisana z {len(saved_paths)} screenami!")
         st.rerun()
 
   with tab2:
-    st.subheader("📜 Twoje Transakcje, Notatki i Zrzuty Ekranu")
     df_trades = pd.read_csv(JOURNAL_FILE)
-
     if df_trades.empty:
       st.info("Brak zapisanych pozycji w bazie.")
     else:
@@ -1008,7 +1180,7 @@ elif menu == "Dziennik handlowy":
       ]
       st.dataframe(df_trades[pola], use_container_width=True)
       st.markdown("---")
-      st.write("### 🔍 Szczegóły transakcji, notatki i miniatury screenów:")
+      st.write("### 🔍 Szczegóły, Notatki, Screeny i Korekta pozycji:")
 
       for idx, row in df_trades.iloc[::-1].iterrows():
         trade_id = row["id"]
@@ -1021,7 +1193,6 @@ elif menu == "Dziennik handlowy":
             st.write(f"**Model:** {row['model']}")
             st.write(f"**Klasa jakości:** {row['jakosc']}")
             st.write(f"**Notatki:** {row['notatki']}")
-
           with c_d2:
             raw_imgs = (
                 str(row["zdjecie"]) if pd.notna(row["zdjecie"]) else ""
@@ -1032,94 +1203,536 @@ elif menu == "Dziennik handlowy":
                 if p.strip() and os.path.exists(p.strip())
             ]
             if img_list:
-              st.write("**Zrzuty ekranu:**")
               grid_cols = st.columns(min(len(img_list), 3))
               for i, p in enumerate(img_list):
                 with grid_cols[i % 3]:
                   st.image(p, caption=f"Screen #{i+1}", use_container_width=True)
             else:
-              st.caption("Brak załączonych zrzutów ekranu dla tej pozycji.")
+              st.caption("Brak załączonych zrzutów ekranu.")
 
-          with st.form(key=f"edit_form_{trade_id}"):
-            st.markdown(f"**✏️ Korekta / Edycja wpisu (ID: {trade_id})**")
-            e_status = st.selectbox(
-                "Zmień wynik",
-                ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"],
-                index=(
-                    ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"].index(
-                        row["status"]
-                    )
-                    if row["status"]
-                    in ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"]
-                    else 0
-                ),
-                key=f"status_{trade_id}",
+          # Formularz edycji i korekty transakcji
+          with st.form(key=f"edit_trade_form_{trade_id}"):
+            st.markdown(
+                f"<div style='color:#38bdf8; font-size:12px;"
+                f" font-weight:700;'>✏️ EDYTUJ TĘ POZYCJĘ (ID: {trade_id})</div>",
+                unsafe_allow_html=True,
             )
-            e_rr = st.number_input(
-                "Zmień wynik w R",
-                value=float(row["wynik_r"]),
-                step=0.1,
-                key=f"rr_{trade_id}",
-            )
-            e_notes = st.text_area(
-                "Edytuj notatki",
-                value=str(row["notatki"]),
-                key=f"notes_{trade_id}",
-            )
-            new_img = st.file_uploader(
-                "Dołącz dodatkowy zrzut ekranu",
-                type=["png", "jpg", "jpeg", "webp"],
-                key=f"img_{trade_id}",
-            )
-
-            col_upd, col_del = st.columns(2)
-            with col_upd:
-              update_btn = st.form_submit_button("ZAPISZ ZMIANY W WPISIE")
-            with col_del:
-              delete_btn = st.form_submit_button(
-                  "USUŃ TEN WPIS", type="secondary"
+            e_c1, e_c2, e_c3 = st.columns(3)
+            with e_c1:
+              e_status = st.selectbox(
+                  "Zmień wynik",
+                  ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"],
+                  index=(
+                      ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"].index(
+                          row["status"]
+                      )
+                      if row["status"]
+                      in ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"]
+                      else 0
+                  ),
+                  key=f"st_{trade_id}",
+              )
+            with e_c2:
+              e_rr = st.number_input(
+                  "Wynik w R",
+                  value=float(row["wynik_r"]),
+                  step=0.1,
+                  key=f"rr_{trade_id}",
+              )
+            with e_c3:
+              new_add_imgs = st.file_uploader(
+                  "Dołącz kolejne screeny",
+                  type=["png", "jpg", "jpeg", "webp"],
+                  accept_multiple_files=True,
+                  key=f"add_img_{trade_id}",
               )
 
-            if update_btn:
-              stare_z = (
+            e_notes = st.text_area(
+                "Edytuj treść notatek",
+                value=str(row["notatki"]),
+                key=f"not_{trade_id}",
+            )
+
+            btn_c1, btn_c2 = st.columns(2)
+            with btn_c1:
+              save_edit_btn = st.form_submit_button("ZAPISZ ZMIANY")
+            with btn_c2:
+              del_btn = st.form_submit_button(
+                  "USUŃ TĘ POZYCJĘ Z BAZY", type="secondary"
+              )
+
+            if save_edit_btn:
+              stare_sciezki = (
                   str(row["zdjecie"])
                   if pd.notna(row["zdjecie"]) and row["zdjecie"] != "nan"
                   else ""
               )
-              lista_z = [p.strip() for p in stare_z.split(";") if p.strip()]
-              if new_img is not None:
-                ext = new_img.name.split(".")[-1]
-                p_nowa = os.path.join(
-                    IMAGES_DIR, f"trade_{trade_id}_add_{int(time.time())}.{ext}"
-                )
-                with open(p_nowa, "wb") as f:
-                  f.write(new_img.getbuffer())
-                lista_z.append(p_nowa)
+              lista_zdjec = [
+                  p.strip() for p in stare_sciezki.split(";") if p.strip()
+              ]
+              if new_add_imgs:
+                for idx_add, n_img in enumerate(new_add_imgs):
+                  ext = n_img.name.split(".")[-1]
+                  img_path = os.path.join(
+                      IMAGES_DIR,
+                      f"trade_{trade_id}_edit_{int(time.time())}_{idx_add}.{ext}",
+                  )
+                  with open(img_path, "wb") as f:
+                    f.write(n_img.getbuffer())
+                  lista_zdjec.append(img_path)
 
               df_trades.loc[df_trades["id"] == trade_id, "status"] = e_status
               df_trades.loc[df_trades["id"] == trade_id, "wynik_r"] = e_rr
               df_trades.loc[df_trades["id"] == trade_id, "notatki"] = e_notes
               df_trades.loc[df_trades["id"] == trade_id, "zdjecie"] = ";".join(
-                  lista_z
+                  lista_zdjec
               )
               df_trades.to_csv(JOURNAL_FILE, index=False)
-              st.success("Zaktualizowano pomyślnie!")
+              st.success("Transakcja zaktualizowana!")
               st.rerun()
 
-            if delete_btn:
+            if del_btn:
               df_trades = df_trades[df_trades["id"] != trade_id]
               df_trades.to_csv(JOURNAL_FILE, index=False)
-              st.warning("Usunięto transakcję.")
+              st.warning("Transakcja została trwale usunięta.")
               st.rerun()
 
 # ==============================================================================
-# POZOSTAŁE MODUŁY
+# MODUŁ 6: TRACK RECORD & KALENDARZ FIOLETOWO-ZIELONY/CZERWONY
 # ==============================================================================
 elif menu == "Krzywa kapitału (Netto R)":
-  st.title("Krzywa kapitału (Netto R)")
+  st.markdown(
+      """<div class="hero-report-card">
+<span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">● QUANTITATIVE PERFORMANCE ENGINE</span>
+<h1 style="color:#ffffff; margin: 4px 0 10px 0; font-size:26px;">Track Record & Analiza Net R vs Gross R</h1>
+<p style="color:#94a3b8; font-size:13px; margin:0;">Krzywa kapitału, audyt tarcia rynkowego (prowizje ECN / spread) oraz kalendarz PnL.</p>
+</div>""",
+      unsafe_allow_html=True,
+  )
+
+  df_trades = pd.read_csv(JOURNAL_FILE)
+  if not df_trades.empty and "wynik_r" in df_trades.columns:
+    df_trades["wynik_r"] = pd.to_numeric(df_trades["wynik_r"], errors="coerce")
+    df_trades = df_trades.dropna(subset=["wynik_r"])
+
+  is_demo = False
+  if df_trades.empty or len(df_trades) == 0:
+    is_demo = True
+    np.random.seed(42)
+    demo_dates = pd.date_range(end=datetime.now(), periods=45, freq="B")
+    demo_models = np.random.choice(
+        [
+            "LDN Type 1 (Sweep Azji)",
+            "LDN Type 3 (Continuation)",
+            "NY Continuation",
+            "NY Reversal",
+        ],
+        size=45,
+    )
+    demo_r = [
+        np.random.choice([2.5, 3.2, -0.6, -1.0, 1.8], p=[0.4, 0.2, 0.15, 0.15, 0.1])
+        for _ in range(45)
+    ]
+    df_analysis = pd.DataFrame({
+        "data": [d.strftime("%Y-%m-%d") for d in demo_dates],
+        "model": demo_models,
+        "wynik_r": demo_r,
+        "status": [
+            "WIN" if r > 0 else ("BE" if r == 0 else "LOSS") for r in demo_r
+        ],
+    })
+  else:
+    df_analysis = df_trades.copy()
+
+  c_ctrl1, c_ctrl2 = st.columns([1, 2])
+  with c_ctrl1:
+    uwzglednij_prowizje = st.toggle("Uwzględnij prowizje brokera", value=True)
+  with c_ctrl2:
+    koszt_prowizji_r = (
+        st.number_input(
+            "Średni koszt prowizji i spreadu na pozycję (w R)",
+            value=0.08,
+            step=0.01,
+            format="%.2f",
+            help=(
+                "Dla konta $10k i ryzyka 0.5% ($50) przy SL 8 pipsów, prowizja"
+                " $6/lot wynosi ok. 0.08 R."
+            ),
+        )
+        if uwzglednij_prowizje
+        else 0.0
+    )
+
+  df_analysis["datetime"] = pd.to_datetime(
+      df_analysis["data"], errors="coerce"
+  ).fillna(pd.to_datetime(datetime.now()))
+  dni_map = {
+      0: "1. Poniedziałek",
+      1: "2. Wtorek",
+      2: "3. Środa",
+      3: "4. Czwartek",
+      4: "5. Piątek",
+  }
+  df_analysis["dzien_tygodnia"] = df_analysis["datetime"].dt.dayofweek.map(
+      dni_map
+  )
+  df_analysis = df_analysis.dropna(subset=["dzien_tygodnia"])
+
+  r_gross_series = df_analysis["wynik_r"].dropna().values
+  r_net_series = r_gross_series - koszt_prowizji_r
+  r_active = r_net_series if uwzglednij_prowizje else r_gross_series
+
+  total_trades = len(r_active)
+  wins = r_active[r_active > 0]
+  losses = r_active[r_active < 0]
+  total_r_gross = np.sum(r_gross_series) if total_trades > 0 else 0.0
+  total_r_net = np.sum(r_net_series) if total_trades > 0 else 0.0
+  laczny_koszt_r = total_trades * koszt_prowizji_r
+  laczny_koszt_usd = laczny_koszt_r * kwota_ryzyka
+
+  win_rate = (len(wins) / total_trades) * 100 if total_trades > 0 else 0.0
+  profit_factor = (
+      abs(np.sum(wins) / np.sum(losses))
+      if len(losses) > 0 and np.sum(losses) != 0
+      else np.nan
+  )
+  expectancy = np.mean(r_active) if total_trades > 0 else 0.0
+  df_analysis["wynik_r_aktywowany"] = r_active
+
+  tab1, tab2, tab3 = st.tabs([
+      "📈 Krzywa Kapitału (Gross vs Net)",
+      "📅 Kalendarz PnL & Tygodniowy R",
+      "🎲 Monte Carlo",
+  ])
+
+  with tab1:
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric(
+        "Wynik Net R",
+        f"{total_r_net:+.2f} R",
+        delta=f"{total_r_gross:+.2f} R (Gross)",
+    )
+    m2.metric("Koszt Prowizji", f"-{laczny_koszt_r:.2f} R", f"-${laczny_koszt_usd:.2f}")
+    m3.metric("Win Rate (Net)", f"{win_rate:.1f}%")
+    m4.metric(
+        "Profit Factor",
+        f"{profit_factor:.2f}" if not np.isnan(profit_factor) else "N/A",
+    )
+    m5.metric("Expectancy", f"{expectancy:+.2f} R / trade")
+
+    if total_trades > 0:
+      fig_equity = go.Figure()
+      fig_equity.add_trace(go.Scatter(
+          x=list(range(1, total_trades + 1)),
+          y=np.cumsum(r_gross_series),
+          mode="lines",
+          name="Gross R (Wykres)",
+          line=dict(color="rgba(56, 189, 248, 0.45)", width=1.5, dash="dot"),
+      ))
+      fig_equity.add_trace(go.Scatter(
+          x=list(range(1, total_trades + 1)),
+          y=np.cumsum(r_net_series),
+          mode="lines+markers",
+          name="Net R (Realne konto)",
+          line=dict(
+              color="#10b981" if total_r_net >= 0 else "#ef4444", width=2.5
+          ),
+          marker=dict(size=5),
+          fill="tozeroy",
+          fillcolor=(
+              "rgba(16, 185, 129, 0.06)"
+              if total_r_net >= 0
+              else "rgba(239, 68, 68, 0.06)"
+          ),
+      ))
+      fig_equity.update_layout(
+          title=f"Porównanie Krzywej: Gross vs Realny Net R ({total_trades} pozycji)",
+          paper_bgcolor="rgba(0,0,0,0)",
+          plot_bgcolor="rgba(8, 10, 18, 0.8)",
+          font=dict(color="#94a3b8", family="Plus Jakarta Sans"),
+          xaxis=dict(gridcolor="#1e2638", showgrid=True, title="Numer Zlecenia"),
+          yaxis=dict(
+              gridcolor="#1e2638", showgrid=True, title="Skumulowany Wynik (R)"
+          ),
+          margin=dict(l=20, r=20, t=50, b=20),
+          height=420,
+      )
+      st.plotly_chart(fig_equity, use_container_width=True)
+
+  with tab2:
+    st.subheader("📅 Kalendarz Sesji Tradingowych (Net R)")
+    sel_year = st.selectbox(
+        "Rok", [datetime.now().year, datetime.now().year - 1], index=0
+    )
+    sel_month = st.selectbox(
+        "Miesiąc", list(range(1, 13)), index=datetime.now().month - 1
+    )
+
+    df_month = df_analysis[
+        (df_analysis["datetime"].dt.year == sel_year)
+        & (df_analysis["datetime"].dt.month == sel_month)
+    ]
+    daily_stats = {}
+    if not df_month.empty:
+      for d_str, grp in df_month.groupby(df_month["datetime"].dt.date):
+        daily_stats[d_str] = {
+            "r": grp["wynik_r_aktywowany"].sum(),
+            "trades": len(grp),
+        }
+
+    cal = calendar.monthcalendar(sel_year, sel_month)
+    cols_headers = st.columns([1, 1, 1, 1, 1, 1.2])
+    for idx, h in enumerate([
+        "PONIEDZIAŁEK",
+        "WTOREK",
+        "ŚRODA",
+        "CZWARTEK",
+        "PIĄTEK",
+        "SUMA TYGODNIA",
+    ]):
+      with cols_headers[idx]:
+        st.markdown(
+            f"<div style='color:#64748b; font-size:11px; font-weight:800;"
+            f" text-align:center;'>{h}</div>",
+            unsafe_allow_html=True,
+        )
+
+    for w_idx, week in enumerate(cal):
+      w_cols = st.columns([1, 1, 1, 1, 1, 1.2])
+      w_sum = 0.0
+      has_trades = False
+      for day_idx in range(5):
+        d_num = week[day_idx]
+        with w_cols[day_idx]:
+          if d_num == 0:
+            st.markdown(
+                "<div style='background:rgba(255,255,255,0.01); height:75px;"
+                " margin-bottom:6px;'></div>",
+                unsafe_allow_html=True,
+            )
+          else:
+            c_date = datetime(sel_year, sel_month, d_num).date()
+            if c_date in daily_stats:
+              has_trades = True
+              dr = daily_stats[c_date]["r"]
+              w_sum += dr
+              if dr > 0:
+                bg_style = (
+                    "background: rgba(16, 185, 129, 0.12); border: 2px solid"
+                    " rgba(52, 211, 153, 0.7);"
+                )
+                text_color = "#34d399"
+              else:
+                bg_style = (
+                    "background: rgba(239, 68, 68, 0.12); border: 2px solid"
+                    " rgba(248, 113, 113, 0.7);"
+                )
+                text_color = "#f87171"
+
+              st.markdown(
+                  f"""
+                            <div style='{bg_style} border-radius:8px; height:75px; padding:8px; text-align:center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                                <div style='font-size:10px; color:#94a3b8; font-weight:700;'>{d_num}</div>
+                                <div style='color:{text_color}; font-weight:800; font-family:JetBrains Mono; font-size:15px; margin-top:6px;'>{dr:+.2f}R</div>
+                            </div>
+                            """,
+                  unsafe_allow_html=True,
+              )
+            else:
+              st.markdown(
+                  f"""
+                            <div style='background: rgba(15, 17, 30, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius:8px; height:75px; padding:8px;'>
+                                <span style='font-size:10px; color:#475569; font-weight:700;'>{d_num}</span>
+                            </div>
+                            """,
+                  unsafe_allow_html=True,
+              )
+
+      with w_cols[5]:
+        if has_trades:
+          if w_sum > 0:
+            w_bg = (
+                "background: rgba(16, 185, 129, 0.15); border: 2px solid"
+                " rgba(52, 211, 153, 0.8);"
+            )
+            w_color = "#34d399"
+          else:
+            w_bg = (
+                "background: rgba(239, 68, 68, 0.15); border: 2px solid"
+                " rgba(248, 113, 113, 0.8);"
+            )
+            w_color = "#f87171"
+
+          st.markdown(
+              f"""
+                    <div style='{w_bg} border-radius:8px; height:75px; padding:8px; text-align:center; box-shadow: 0 4px 14px rgba(0,0,0,0.4);'>
+                        <span style='font-size:9px; color:#cbd5e1; font-weight:800; text-transform:uppercase;'>Tydzień #{w_idx+1}</span>
+                        <div style='color:{w_color}; font-weight:800; font-family:JetBrains Mono; font-size:16px; margin-top:4px;'>{w_sum:+.2f}R</div>
+                    </div>
+                    """,
+              unsafe_allow_html=True,
+          )
+        else:
+          st.markdown(
+              "<div style='height:75px;'></div>", unsafe_allow_html=True
+          )
+
+  with tab3:
+    st.subheader("🎲 Symulacja Monte Carlo")
+    target_r = st.number_input("Cel Payoutu (w R)", value=10.0)
+    dd_limit_r = st.number_input("Limit Drawdownu (w R)", value=4.0)
+    horyzont = st.slider("Liczba pozycji w teście", 20, 100, 50)
+
+    sims = np.zeros((500, horyzont))
+    for i in range(500):
+      sims[i, :] = np.cumsum(
+          np.random.choice(r_active, size=horyzont, replace=True)
+      )
+
+    fig_mc = go.Figure()
+    for i in range(30):
+      fig_mc.add_trace(go.Scatter(
+          y=sims[i, :],
+          mode="lines",
+          line=dict(color="rgba(148, 163, 184, 0.1)", width=1),
+          showlegend=False,
+      ))
+    fig_mc.add_hline(
+        y=target_r, line_color="#10b981", annotation_text=f"Target +{target_r}R"
+    )
+    fig_mc.add_hline(
+        y=-dd_limit_r,
+        line_color="#ef4444",
+        annotation_text=f"Max DD -{dd_limit_r}R",
+    )
+    fig_mc.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(8, 10, 18, 0.8)",
+        font=dict(color="#94a3b8"),
+        height=400,
+    )
+    st.plotly_chart(fig_mc, use_container_width=True)
+
+# ==============================================================================
+# MODUŁ 7: KURSY NA DZIŚ
+# ==============================================================================
 elif menu == "Kursy na dziś":
-  st.title("Kursy na dziś")
+  st.markdown(
+      """<div class="hero-report-card">
+<span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">● STATISTICAL PROBABILITY MATRIX</span>
+<h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">The Odds On Today | Tendencje Sesyjne</h1>
+<p style="color:#94a3b8; font-size:13px; margin:0;">Zestawienie twardych prawdopodobieństw statystycznych sesji London & NY.</p>
+</div>""",
+      unsafe_allow_html=True,
+  )
+
+  o1, o2 = st.columns(2)
+  with o1:
+    st.markdown(
+        """<div class="odds-matrix-card card-cyan">
+        <div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#38bdf8; font-weight:800; font-size:12px;">ASIAN RANGE EXPANSION</span><span style="background:rgba(56,189,248,0.2); color:#38bdf8; padding:3px 10px; border-radius:6px; font-size:18px; font-weight:800; font-family:JetBrains Mono;">75%</span></div>
+        <div style="color:#f1f5f9; font-size:14px; font-weight:600; margin-top:8px;">Wybicie Asian High lub Asian Low po godzinie 03:00 NY</div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+  with o2:
+    st.markdown(
+        """<div class="odds-matrix-card card-emerald">
+        <div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#10b981; font-weight:800; font-size:12px;">HIGH / LOW OF THE DAY</span><span style="background:rgba(16,185,129,0.2); color:#10b981; padding:3px 10px; border-radius:6px; font-size:18px; font-weight:800; font-family:JetBrains Mono;">88%</span></div>
+        <div style="color:#f1f5f9; font-size:14px; font-weight:600; margin-top:8px;">Ustanowienie szczytu lub dołka dnia poza godzinami kasowymi (Cash)</div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+# ==============================================================================
+# MODUŁ 8: FOREX FACTORY CALENDAR
+# ==============================================================================
 elif menu == "Kalendarz Forex Factory":
-  st.title("Kalendarz Forex Factory")
+  st.title("📅 Kalendarz Forex Factory")
+  st.caption(
+      "Filtrowanie wydarzeń o wysokim wpływie na zmienność (High Impact News)"
+  )
+
+  events = get_forex_calendar()
+  today_str = datetime.now().strftime("%Y-%m-%d")
+  filtered = [
+      ev for ev in events if "date" in ev and ev["date"].startswith(today_str)
+  ]
+  display_data = filtered if filtered else events[:25]
+
+  for ev in display_data:
+    impact = ev.get("impact", "Low")
+    curr = ev.get("country", "")
+    title = ev.get("title", "")
+    time_str = (
+        ev.get("date", "")[11:16]
+        if len(ev.get("date", "")) >= 16
+        else "Cały dzień"
+    )
+    color = "#ef4444" if impact == "High" else "#f59e0b"
+
+    st.markdown(
+        f"""
+        <div style="background:rgba(9, 11, 20, 0.85); border:1px solid rgba(255,255,255,0.06); border-left:3px solid {color}; border-radius:6px; padding:12px; margin-bottom:8px;">
+            <span style="color:{color}; font-weight:800; font-size:11px;">[{impact.upper()}]</span> 
+            <strong style="color:#ffffff; font-family:'JetBrains Mono';">{time_str}</strong> | <b>{curr}</b> — {title}
+            <div style="color:#64748b; font-size:11px; margin-top:4px;">Prognoza: {ev.get('forecast', '-')} | Poprzednio: {ev.get('previous', '-')}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# ==============================================================================
+# MODUŁ 9: LIVE NEWS & CNBC FEED
+# ==============================================================================
 elif menu == "Wiadomości na żywo i CNBC":
-  st.title("Wiadomości na żywo i CNBC")
+  st.title("📰 Wiadomości na żywo i CNBC")
+  st.caption(
+      "Strumień nagłówków na żywo wraz z miniaturami fotograficznymi prosto z"
+      " rynków finansowych"
+  )
+
+  col_a, col_b = st.columns(2)
+  with col_a:
+    st.subheader("🇺🇸 US Markets & Geopolityka")
+    t_feed = get_rss_with_images(
+        "https://www.cnbc.com/id/100003114/device/rss/rss.html"
+    )
+    if t_feed:
+      for item in t_feed[:6]:
+        st.markdown(
+            f"""
+                <div style="display:flex; background:rgba(9, 11, 20, 0.85); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #38bdf8; border-radius:6px; padding:12px; margin-bottom:12px; gap:14px; align-items:center;">
+                    <img src="{item['image']}" style="width:100px; height:68px; object-fit:cover; border-radius:4px;">
+                    <div>
+                        <a href="{item['link']}" target="_blank" style="font-size:13px; font-weight:600; color:#f1f5f9; text-decoration:none;">{item['title']}</a>
+                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{item['published']}</div>
+                    </div>
+                </div>
+                """,
+            unsafe_allow_html=True,
+        )
+    else:
+      st.info("Pobieranie najświeższych depesz ze strumienia...")
+
+  with col_b:
+    st.subheader("📈 Gospodarka & Banki Centralne")
+    m_feed = get_rss_with_images(
+        "https://www.cnbc.com/id/20910258/device/rss/rss.html"
+    )
+    if m_feed:
+      for item in m_feed[:6]:
+        st.markdown(
+            f"""
+                <div style="display:flex; background:rgba(9, 11, 20, 0.85); border:1px solid rgba(255,255,255,0.06); border-left:3px solid #38bdf8; border-radius:6px; padding:12px; margin-bottom:12px; gap:14px; align-items:center;">
+                    <img src="{item['image']}" style="width:100px; height:68px; object-fit:cover; border-radius:4px;">
+                    <div>
+                        <a href="{item['link']}" target="_blank" style="font-size:13px; font-weight:600; color:#f1f5f9; text-decoration:none;">{item['title']}</a>
+                        <div style="font-size:11px; color:#64748b; margin-top:4px;">{item['published']}</div>
+                    </div>
+                </div>
+                """,
+            unsafe_allow_html=True,
+        )
+    else:
+      st.info("Pobieranie najświeższych depesz ze strumienia...")
