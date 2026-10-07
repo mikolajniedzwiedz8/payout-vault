@@ -140,6 +140,10 @@ st.markdown(
         background: rgba(9, 11, 20, 0.9); border: 1px solid rgba(255, 255, 255, 0.06);
         border-top: 2px solid #38bdf8; border-left: 2px solid #38bdf8; border-radius: 8px; padding: 22px; margin-bottom: 22px;
     }
+    .gf-card {
+        background: rgba(11, 14, 25, 0.9); border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 8px; padding: 18px; margin-bottom: 14px;
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -206,9 +210,85 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --- FUNKCJE POMOCNICZE DANYCH ---
+def get_forex_calendar():
+  try:
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    r = requests.get(
+        "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+        headers=headers,
+        timeout=5,
+    )
+    return r.json() if r.status_code == 200 else []
+  except Exception:
+    return []
+
+
+def get_google_finance_news(query):
+  try:
+    encoded_query = requests.utils.quote(f"{query} when:2d")
+    url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    r = requests.get(url, headers=headers, timeout=6)
+    feed = feedparser.parse(r.content)
+
+    news_items = []
+    for entry in feed.entries[:3]:
+      full_title = entry.get("title", "")
+      source = "Google Finance"
+      title = full_title
+      if " - " in full_title:
+        parts = full_title.rsplit(" - ", 1)
+        title = parts[0]
+        source = parts[1]
+      news_items.append({
+          "title": title,
+          "source": source,
+          "link": entry.get("link", "#"),
+          "published": entry.get("published", "")[:16],
+      })
+    return news_items
+  except Exception:
+    return []
+
+
+def get_rss_with_images(url):
+  try:
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    r = requests.get(url, headers=headers, timeout=6)
+    feed = feedparser.parse(r.content)
+    items = []
+    for entry in feed.entries[:8]:
+      img_url = None
+      if "media_thumbnail" in entry and len(entry.media_thumbnail) > 0:
+        img_url = entry.media_thumbnail[0].get("url")
+      elif "media_content" in entry and len(entry.media_content) > 0:
+        img_url = entry.media_content[0].get("url")
+      elif "enclosures" in entry and len(entry.enclosures) > 0:
+        for enc in entry.enclosures:
+          if "image" in enc.get("type", ""):
+            img_url = enc.get("href")
+            break
+      if not img_url:
+        img_url = (
+            "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=300&q=80"
+        )
+      items.append({
+          "title": entry.get("title", ""),
+          "link": entry.get("link", "#"),
+          "published": entry.get("published", "")[:22],
+          "image": img_url,
+      })
+    return items
+  except Exception:
+    return []
+
+
 # --- PANEL BOCZNY ---
 if "current_tab" not in st.session_state:
-  st.session_state["current_tab"] = "Dziennik handlowy"
+  st.session_state["current_tab"] = (
+      "Taktyczny terminal na żywo i interfejs HUD mapy"
+  )
 
 with st.sidebar:
   st.markdown(
@@ -255,22 +335,558 @@ with st.sidebar:
   prowizja_r = prowizja_usd / kwota_ryzyka if kwota_ryzyka > 0 else 0
 
 # ==============================================================================
-# MODUŁY APLIKACJI
+# MODUŁ 1: TERMINAL & CHART
 # ==============================================================================
 if menu == "Taktyczny terminal na żywo i interfejs HUD mapy":
   st.title("🖥️ Taktyczny terminal na żywo i interfejs HUD mapy")
+  st.caption(
+      "Monitoring sesji rynkowych w czasie rzeczywistym, algorytmiczne Golden"
+      " Minutes oraz wykres TradingView"
+  )
 
-elif menu == "Poranny raport i skanowanie dzienne":
-  st.title("Morning Report & Directional Call")
+  now_lon = datetime.now(ZoneInfo("Europe/London"))
+  now_ny = datetime.now(ZoneInfo("America/New_York"))
+  now_utc = datetime.now(ZoneInfo("UTC"))
 
-elif menu == "🌐 Fundamental Pulse i strumień Google Finance":
-  st.title("Fundamental Pulse & Google Finance Stream")
+  lon_open = 8 <= now_lon.hour < 16
+  ny_open = (now_ny.hour == 9 and now_ny.minute >= 30) or (
+      9 < now_ny.hour < 16
+  )
+  asia_open = 0 <= now_lon.hour < 7
 
-elif menu == "👁️ Inspektor wykresów wizji AI":
-  st.title("AI Vision Chart Inspector")
+  min_lon_815 = (8 * 60 + 15) - (now_lon.hour * 60 + now_lon.minute)
+  min_ny_930 = (9 * 60 + 30) - (now_ny.hour * 60 + now_ny.minute)
+
+  if min_lon_815 > 0:
+    ldn_alert = f"Za {min_lon_815} min (Oczekiwanie na sweep Azji)"
+    ldn_color = "#f59e0b"
+  elif -60 <= min_lon_815 <= 0:
+    ldn_alert = f"AKTYWNE OKNO (-{abs(min_lon_815)}m)! Poluj na Type 1"
+    ldn_color = "#10b981"
+  else:
+    ldn_alert = "Sesja w toku / Poza oknem Type 1"
+    ldn_color = "#64748b"
+
+  if min_ny_930 > 0:
+    ny_alert = f"Za {min_ny_930} min (Oczekiwanie na Cash Open)"
+    ny_color = "#38bdf8"
+  elif -60 <= min_ny_930 <= 0:
+    ny_alert = f"AKTYWNY OPEN (-{abs(min_ny_930)}m)! Zwiększona płynność"
+    ny_color = "#10b981"
+  else:
+    ny_alert = "Po oficjalnym otwarciu kasowym"
+    ny_color = "#64748b"
+
+  zc1, zc2, zc3, zc4 = st.columns(4)
+  with zc1:
+    st.markdown(
+        f"""
+        <div class="terminal-clock-card">
+            <div class="clock-city">LONDYN (UK)</div>
+            <div class="clock-time">{now_lon.strftime('%H:%M:%S')}</div>
+            <span class="clock-status {'status-open' if lon_open else 'status-closed'}">
+                {'SESJA AKTYWNA' if lon_open else 'ZAMKNIĘTA'}
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  with zc2:
+    st.markdown(
+        f"""
+        <div class="terminal-clock-card">
+            <div class="clock-city">NOWY JORK (EST)</div>
+            <div class="clock-time">{now_ny.strftime('%H:%M:%S')}</div>
+            <span class="clock-status {'status-open' if ny_open else ('status-pre' if now_ny.hour >= 7 else 'status-closed')}">
+                {'CASH OPEN' if ny_open else ('PRE-MARKET' if now_ny.hour >= 7 else 'ZAMKNIĘTA')}
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  with zc3:
+    st.markdown(
+        f"""
+        <div class="terminal-clock-card">
+            <div class="clock-city">AZJA (TOKYO / UTC)</div>
+            <div class="clock-time">{now_utc.strftime('%H:%M:%S')} UTC</div>
+            <span class="clock-status {'status-open' if asia_open else 'status-closed'}">
+                {'RANGE BUDOWANY' if asia_open else 'ZAMKNIĘTA'}
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  with zc4:
+    st.markdown(
+        f"""
+        <div class="terminal-clock-card" style="border-color: rgba(56, 189, 248, 0.4);">
+            <div class="clock-city" style="color:#38bdf8;">GOLDEN MINUTES</div>
+            <div style="font-size:12px; margin-top:6px; color:#ffffff; font-family:'JetBrains Mono';"><b>08:15 UK:</b> <span style="color:{ldn_color}">{ldn_alert}</span></div>
+            <div style="font-size:12px; margin-top:2px; color:#ffffff; font-family:'JetBrains Mono';"><b>09:30 NY:</b> <span style="color:{ny_color}">{ny_alert}</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  st.markdown("---")
+
+  tv_c1, tv_c2 = st.columns([1, 4])
+  with tv_c1:
+    wybrany_inst = st.selectbox(
+        "Aktywo TradingView",
+        [
+            "FX:EURUSD",
+            "FX:GBPUSD",
+            "OANDA:XAUUSD",
+            "NASDAQ:NDX",
+            "BITSTAMP:BTCUSD",
+        ],
+        index=0,
+    )
+    wybrany_tf = st.selectbox(
+        "Interwał początkowy", ["1", "5", "15", "60", "D"], index=2
+    )
+
+  with tv_c2:
+    tv_widget_html = f"""
+        <div class="tradingview-widget-container" style="height:620px; width:100%; border:1px solid rgba(255,255,255,0.08); border-radius:8px; overflow:hidden;">
+          <div id="tradingview_embed" style="height:100%; width:100%;"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+          new TradingView.widget({{
+            "autosize": true,
+            "symbol": "{wybrany_inst}",
+            "interval": "{wybrany_tf}",
+            "timezone": "Europe/London",
+            "theme": "dark",
+            "style": "1",
+            "locale": "pl",
+            "toolbar_bg": "#05060b",
+            "enable_publishing": false,
+            "hide_side_toolbar": false,
+            "allow_symbol_change": true,
+            "save_image": true,
+            "container_id": "tradingview_embed"
+          }});
+          </script>
+        </div>
+        """
+    components.html(tv_widget_html, height=630)
 
 # ==============================================================================
-# MODUŁ: DZIENNIK HANDLOWY (Z PEŁNYM PODGLĄDEM NOTATEK, SCREENÓW I EDYCJĄ)
+# MODUŁ 2: MORNING REPORT
+# ==============================================================================
+elif menu == "Poranny raport i skanowanie dzienne":
+  st.markdown(
+      """<div class="hero-report-card">
+<span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">● AI INSTITUTIONAL RECON SCAN</span>
+<h1 style="color:#ffffff; margin: 4px 0 10px 0; font-size:26px;">Morning Report & Directional Call</h1>
+<p style="color:#94a3b8; font-size:14px; margin:0;">
+Precyzyjna dekonstrukcja struktury rynkowej C.E.T., absorpcji w strefach <b>D1 Supply / Demand</b> oraz wyczerpania pędu przez silnik <b>Gemini AI</b>.
+</p>
+</div>""",
+      unsafe_allow_html=True,
+  )
+
+  r1_c1, r1_c2, r1_c3 = st.columns(3)
+  with r1_c1:
+    instrument = st.selectbox(
+        "Instrument", ["EURUSD", "GBPUSD", "XAUUSD (Złoto)", "NQ100"]
+    )
+  with r1_c2:
+    d1_candle = st.selectbox("Świeca D1 (Wczoraj)", [
+        "Engulfing Up (Silny impuls wzrostowy)",
+        "Engulfing Down (Silny impuls spadkowy)",
+        "Indecision (Doji / Konsolidacja)",
+        "Rejection Up (Odrzucenie góry - knot)",
+        "Rejection Down (Odrzucenie dołu - knot)",
+    ])
+  with r1_c3:
+    d1_zone = st.selectbox("Lokalizacja w strefie D1 (HTF)", [
+        "Otwarta przestrzeń (Brak kluczowej strefy D1)",
+        "Wewnątrz D1 DEMAND / Bullish OB / FVG (Strefa Kupna)",
+        "Wewnątrz D1 SUPPLY / Bearish OB / FVG (Strefa Sprzedaży)",
+        "Świeży Sweep / Odrzucenie D1 Demand (Paliwo na odbicie w górę)",
+        "Świeży Sweep / Odrzucenie D1 Supply (Paliwo na zrzut w dół)",
+    ])
+
+  r2_c1, r2_c2 = st.columns(2)
+  with r2_c1:
+    pdl_pdh = st.selectbox(
+        "Sweep PDH / PDL?",
+        ["Brak sweepu", "Sweep PDL (Paliwo na Long)", "Sweep PDH (Paliwo na Short)"],
+    )
+  with r2_c2:
+    phase = st.selectbox("Faza Rynku 30M (MTF)", [
+        "Faza 1A (Pro MTF / Początek impulsu)",
+        "Faza 1B (Pro MTF / CHoCH)",
+        "Faza 1C (Pro MTF / BOS + CHoCH - Setup A+)",
+        "Faza 1D (Pro MTF / Wybity High/Low - Rozciągnięcie)",
+        "Faza 2A (Counter MTF / Wczesny Pullback)",
+        "Faza 2B (Counter MTF / Głęboka Korekta)",
+        "Faza 2C (Counter MTF / Pełne Odwrócenie Struktury)",
+    ])
+
+  if st.button(
+      "⚡ URUCHOM PEŁNY RAPORT SESYJNY (INSTITUTIONAL SCAN)", type="primary"
+  ):
+    ai_model, model_name = get_gemini_model()
+    if ai_model:
+      with st.spinner(
+          f"Gemini ({model_name}) analizuje strefy D1, absorpcję wolumenu i"
+          " generuje briefing..."
+      ):
+        try:
+          prompt_baza = f"""
+                    Jesteś Głównym Analitykiem C.E.T. Framework (Capital Efficiency Trading). Przygotuj instytucjonalny briefing przedsesyjny.
+                    DANE SESJI:
+                    - Aktywo: {instrument}
+                    - Kontekst D1: {d1_candle}
+                    - Strefa HTF D1: {d1_zone}
+                    - Płynność zewnętrzna: {pdl_pdh}
+                    - Faza struktury 30M: {phase}
+
+                    ZASADY C.E.T.:
+                    1. Pułapka pędu: Spadek w D1 Demand oznacza akumulację i szansę na V-bounce (zakaz sprzedaży w dołek D1 Demand). Wzrost w D1 Supply oznacza absorpcję podaży (zakaz kupowania w szczyt).
+                    2. Wymóg zamknięcia korpusem (Body Close) po sweepie płynności sesyjnej.
+
+                    Sformatuj w 4 sekcjach Markdown:
+                    ### 1. 🏛 MECHANIKA D1 HTF & ABSORPCJA
+                    ### 2. 🧭 FAZA 30M ORDER FLOW & BIAS
+                    ### 3. 🎯 TAKTYKA EGZEKUCYJNA (LONDON / NY PLAYBOOK)
+                    ### 4. ⚖️ WERDYKT KIERUNKOWY (BUY / SELL / STAND DOWN)
+                    """
+          res_g = ai_model.generate_content(prompt_baza)
+          st.session_state["gemini_report"] = res_g.text
+          st.session_state["gemini_model_name"] = model_name
+          st.session_state["gemini_instrument"] = instrument
+        except Exception as e:
+          st.error(f"Błąd silnika Gemini: {e}")
+    else:
+      st.error("Brak skonfigurowanego klucza API w sekretach Streamlit Cloud.")
+
+  if st.session_state.get("gemini_report"):
+    st.markdown("---")
+    st.markdown(
+        f"""<div class="hero-report-card">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <span style="color:#38bdf8; font-weight:800; font-size:13px;">DIRECTIONAL REPORT | {st.session_state.get('gemini_instrument', '')}</span>
+            <span style="color:#64748b; font-family:'JetBrains Mono'; font-size:11px;">ENGINE: {st.session_state.get('gemini_model_name', 'Gemini Flash')}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(st.session_state["gemini_report"])
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ==============================================================================
+# MODUŁ 3: FUNDAMENTAL PULSE & GOOGLE FINANCE STREAM (DYNAMICZNY)
+# ==============================================================================
+elif menu == "🌐 Fundamental Pulse i strumień Google Finance":
+  st.markdown(
+      """<div class="hero-report-card">
+<span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">● REAL-TIME GOOGLE FINANCE INTELLIGENCE</span>
+<h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">Fundamental Pulse & Google Finance Stream</h1>
+<p style="color:#94a3b8; font-size:13px; margin:0;">
+Agregacja depesz wprost ze strumieni <b>Google Finance</b> (Reuters, Bloomberg, FT) dedykowana dla <b>EURUSD</b>, <b>XAUUSD</b> oraz <b>GBPUSD</b>.
+</p>
+</div>""",
+      unsafe_allow_html=True,
+  )
+
+  with st.spinner("Pobieranie strumieni depesz z Google Finance..."):
+    gf_eur = get_google_finance_news(
+        'EURUSD OR "EUR/USD" OR "European Central Bank"'
+    )
+    gf_gold = get_google_finance_news('XAUUSD OR "gold price" OR "gold market"')
+    gf_gbp = get_google_finance_news('GBPUSD OR "GBP/USD" OR "Bank of England"')
+
+  st.markdown(
+      """<div style="background: linear-gradient(180deg, rgba(14, 18, 34, 0.9) 0%, rgba(8, 10, 20, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid #38bdf8; border-radius: 8px; padding: 18px; margin-bottom: 20px;">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+<span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;">DOMINUJĄCY MOTYW SESJI (GLOBAL DRIVER)</span>
+<span style="color:#94a3b8; font-size:11px; font-family:'JetBrains Mono';">DXY: 101.40 | US10Y: 4.18%</span>
+</div>
+<div style="font-size:15px; font-weight:700; color:#ffffff; line-height:1.4;">
+Oczekiwanie na nowe katalizatory inflacyjne w USA oraz popyt na aktywa Safe-Haven.
+</div>
+<div style="color:#94a3b8; font-size:12px; margin-top:6px; line-height:1.5;">
+Inwestorzy instytucjonalni wstrzymują się z agresywnym skupem dolara (DXY). Rentowności obligacji USA stabilizują się, co sprzyja wycenie surowców oraz metali szlachetnych.
+</div>
+</div>""",
+      unsafe_allow_html=True,
+  )
+
+
+  def get_market_badge(chg):
+    if chg > 0.05:
+      return (
+          "▲ BULLISH / POPYT",
+          "rgba(16, 185, 129, 0.18)",
+          "#34d399",
+          "rgba(52, 211, 153, 0.6)",
+      )
+    elif chg < -0.05:
+      return (
+          "▼ BEARISH / SPRZEDAŻ",
+          "rgba(239, 68, 68, 0.18)",
+          "#f87171",
+          "rgba(248, 113, 113, 0.6)",
+      )
+    else:
+      return (
+          "◆ RANGE / WYCZEKIWANIE",
+          "rgba(245, 158, 11, 0.18)",
+          "#fbbf24",
+          "rgba(251, 191, 36, 0.6)",
+      )
+
+
+  eur_txt, eur_bg_b, eur_col_b, eur_border_b = get_market_badge(eur_c)
+  gold_txt, gold_bg_b, gold_col_b, gold_border_b = get_market_badge(gold_c)
+  gbp_txt, gbp_bg_b, gbp_col_b, gbp_border_b = get_market_badge(gbp_c)
+
+  col_eur, col_xau, col_gbp = st.columns(3)
+
+  # --- KARTA EURUSD ---
+  with col_eur:
+    eur_news_html = (
+        "".join([
+            f"<div style='margin-bottom:8px; padding-bottom:6px;"
+            " border-bottom:1px solid rgba(255,255,255,0.04);'><a"
+            f" href='{item['link']}' target='_blank'"
+            " style='color:#f1f5f9; text-decoration:none; font-size:12px;"
+            f" font-weight:600; line-height:1.3; display:block;'>{item['title']}</a><span"
+            " style='font-size:10px; color:#38bdf8;"
+            f" font-weight:700;'>{item['source']}</span> • <span"
+            f" style='font-size:10px; color:#64748b;'>{item['published']}</span></div>"
+            for item in gf_eur
+        ])
+        if gf_eur
+        else (
+            "<div style='color:#64748b; font-size:11px;'>Brak świeżych"
+            " depesz.</div>"
+        )
+    )
+
+    st.markdown(
+        f"""<div class="gf-card" style="border-top: 3px solid #38bdf8; display:flex; flex-direction:column; justify-content:space-between; min-height:480px;">
+<div>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+<span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">EURUSD</span>
+<span style="background:{eur_bg_b}; color:{eur_col_b}; border:1px solid {eur_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{eur_txt}</span>
+</div>
+<div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{eur_p:.4f}</div>
+<div style="font-size:11px; color:{"#10b981" if eur_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{eur_c:+.2f}% dzisiaj</div>
+<div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
+{eur_news_html}
+</div>
+<div style="background: linear-gradient(180deg, rgba(56, 189, 248, 0.14) 0%, rgba(10, 16, 30, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.45); border-left: 5px solid #38bdf8; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
+<div style="color:#38bdf8; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
+<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Reakcja ceny na aktualne przepływy zleceń (Order Flow) i strefy D1.</div>
+</div>
+</div>""",
+        unsafe_allow_html=True,
+    )
+
+  # --- KARTA XAUUSD ---
+  with col_xau:
+    gold_news_html = (
+        "".join([
+            f"<div style='margin-bottom:8px; padding-bottom:6px;"
+            " border-bottom:1px solid rgba(255,255,255,0.04);'><a"
+            f" href='{item['link']}' target='_blank'"
+            " style='color:#f1f5f9; text-decoration:none; font-size:12px;"
+            f" font-weight:600; line-height:1.3; display:block;'>{item['title']}</a><span"
+            " style='font-size:10px; color:#fbbf24;"
+            f" font-weight:700;'>{item['source']}</span> • <span"
+            f" style='font-size:10px; color:#64748b;'>{item['published']}</span></div>"
+            for item in gf_gold
+        ])
+        if gf_gold
+        else (
+            "<div style='color:#64748b; font-size:11px;'>Brak świeżych"
+            " depesz.</div>"
+        )
+    )
+
+    st.markdown(
+        f"""<div class="gf-card" style="border-top: 3px solid #fbbf24; display:flex; flex-direction:column; justify-content:space-between; min-height:480px;">
+<div>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+<span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">XAUUSD (ZŁOTO)</span>
+<span style="background:{gold_bg_b}; color:{gold_col_b}; border:1px solid {gold_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{gold_txt}</span>
+</div>
+<div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{gold_p:.2f}</div>
+<div style="font-size:11px; color:{"#10b981" if gold_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gold_c:+.2f}% dzisiaj</div>
+<div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
+{gold_news_html}
+</div>
+<div style="background: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, rgba(26, 18, 10, 0.95) 100%); border: 1px solid rgba(245, 158, 11, 0.45); border-left: 5px solid #fbbf24; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
+<div style="color:#fbbf24; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
+<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Monitorowanie płynności instytucjonalnej oraz poziomów stop loss.</div>
+</div>
+</div>""",
+        unsafe_allow_html=True,
+    )
+
+  # --- KARTA GBPUSD ---
+  with col_gbp:
+    gbp_news_html = (
+        "".join([
+            f"<div style='margin-bottom:8px; padding-bottom:6px;"
+            " border-bottom:1px solid rgba(255,255,255,0.04);'><a"
+            f" href='{item['link']}' target='_blank'"
+            " style='color:#f1f5f9; text-decoration:none; font-size:12px;"
+            f" font-weight:600; line-height:1.3; display:block;'>{item['title']}</a><span"
+            " style='font-size:10px; color:#a855f7;"
+            f" font-weight:700;'>{item['source']}</span> • <span"
+            f" style='font-size:10px; color:#64748b;'>{item['published']}</span></div>"
+            for item in gf_gbp
+        ])
+        if gf_gbp
+        else (
+            "<div style='color:#64748b; font-size:11px;'>Brak świeżych"
+            " depesz.</div>"
+        )
+    )
+
+    st.markdown(
+        f"""<div class="gf-card" style="border-top: 3px solid #a855f7; display:flex; flex-direction:column; justify-content:space-between; min-height:480px;">
+<div>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+<span style="font-size:16px; font-weight:800; color:#ffffff; letter-spacing:0.02em;">GBPUSD</span>
+<span style="background:{gbp_bg_b}; color:{gbp_col_b}; border:1px solid {gbp_border_b}; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:800; font-family:'JetBrains Mono';">{gbp_txt}</span>
+</div>
+<div style="font-size:24px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono'; margin:6px 0 2px 0;">{gbp_p:.4f}</div>
+<div style="font-size:11px; color:{"#10b981" if gbp_c >= 0 else "#ef4444"}; font-family:'JetBrains Mono'; margin-bottom:14px; font-weight:700;">{gbp_c:+.2f}% dzisiaj</div>
+<div style="font-size:10px; color:#64748b; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:8px;">DEPESZE GOOGLE FINANCE:</div>
+{gbp_news_html}
+</div>
+<div style="background: linear-gradient(180deg, rgba(168, 85, 247, 0.14) 0%, rgba(20, 12, 30, 0.95) 100%); border: 1px solid rgba(168, 85, 247, 0.45); border-left: 5px solid #a855f7; border-radius: 8px; padding: 14px 16px; margin-top: 16px;">
+<div style="color:#c084fc; font-size:12px; font-weight:800; text-transform:uppercase; margin-bottom:6px;">⚡ C.E.T. PLAYBOOK</div>
+<div style="color:#ffffff; font-size:13px; font-weight:700; line-height:1.4;">Zarządzanie pozycją w oparciu o aktualne zmienne makro.</div>
+</div>
+</div>""",
+        unsafe_allow_html=True,
+    )
+
+  st.markdown("---")
+  st.subheader("⚡ Głęboki Audyt AI (Gemini)")
+  if st.button(
+      "URUCHOM ANALIZĘ DEPESZ GOOGLE FINANCE PRZEZ AI", type="primary"
+  ):
+    ai_model, model_name = get_gemini_model()
+    if ai_model:
+      with st.spinner(f"Gemini ({model_name}) analizuje depesze z Google Finance..."):
+        try:
+          eur_text = "\n".join(
+              [f"- {i['title']} ({i['source']})" for i in gf_eur]
+          )
+          gold_text = "\n".join(
+              [f"- {i['title']} ({i['source']})" for i in gf_gold]
+          )
+          gbp_text = "\n".join(
+              [f"- {i['title']} ({i['source']})" for i in gf_gbp]
+          )
+
+          prompt_gf = f"""
+                    Oceń wpływ tych depesz rynkowych z Google Finance na sesję:
+                    EURUSD: {eur_text}
+                    ZŁOTO: {gold_text}
+                    GBPUSD: {gbp_text}
+                    Przygotuj werdykt: sentyment, siła dolara DXY oraz pułapki na detalistów dla każdego z 3 aktywów.
+                    """
+          res_gf = ai_model.generate_content(prompt_gf)
+          st.session_state["macro_digest"] = res_gf.text
+          st.session_state["macro_model_name"] = model_name
+        except Exception as e:
+          st.error(f"Błąd silnika Gemini: {e}")
+    else:
+      st.error("Brak klucza API w sekretach Streamlit Cloud.")
+
+  if st.session_state.get("macro_digest"):
+    st.markdown(
+        f"""<div style="background: rgba(9, 11, 20, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-top: 2px solid #38bdf8; border-radius: 8px; padding: 22px; margin-top: 18px;">
+        <span style="font-size:11px; font-weight:800; color:#38bdf8; text-transform:uppercase;">AI MACRO PULSE SUMMARY</span>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(st.session_state["macro_digest"])
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ==============================================================================
+# MODUŁ 4: INSPEKTOR WIZJI AI
+# ==============================================================================
+elif menu == "👁️ Inspektor wykresów wizji AI":
+  st.markdown(
+      """<div class="hero-report-card">
+<span style="color:#38bdf8; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase;">● MULTIMODAL COMPUTER VISION ENGINE</span>
+<h1 style="color:#ffffff; margin: 4px 0 8px 0; font-size:26px;">AI Vision Chart Inspector</h1>
+<p style="color:#94a3b8; font-size:13px; margin:0;">Wgraj zrzut ekranu wykresu giełdowego do bezpośredniej weryfikacji przez AI.</p>
+</div>""",
+      unsafe_allow_html=True,
+  )
+
+  v_c1, v_c2 = st.columns([1, 1])
+  with v_c1:
+    uploaded_chart = st.file_uploader(
+        "Załącz zrzut ekranu wykresu",
+        type=["png", "jpg", "jpeg", "webp"],
+        key="vision_uploader",
+    )
+    v_asset = st.selectbox(
+        "Analizowany Instrument",
+        ["EURUSD", "GBPUSD", "XAUUSD (Złoto)", "NQ100", "Inny"],
+    )
+    v_intent = st.selectbox(
+        "Planowany Kierunek", ["LONG 🟢", "SHORT 🔴", "Ocena neutralna"]
+    )
+    v_context = st.text_input("Dodatkowy kontekst sesji (opcjonalnie)")
+
+  with v_c2:
+    if uploaded_chart is not None:
+      pil_img = Image.open(uploaded_chart)
+      st.image(pil_img, caption="Wgrany wykres", use_container_width=True)
+
+  if uploaded_chart is not None:
+    if st.button("⚡ PRZESKANUJ STRUKTURĘ WYKRESU (VISION SCAN)", type="primary"):
+      ai_model, model_name = get_gemini_model()
+      if ai_model:
+        with st.spinner(
+            f"AI Vision ({model_name}) analizuje geometrię świec i płynność..."
+        ):
+          try:
+            prompt_v = (
+                f"Przeanalizuj zrzut wykresu dla {v_asset} pod kątem wejścia w"
+                f" {v_intent}. Zwróć uwagę na zamknięcie korpusem po sweepie,"
+                " pułapki D1 HTF i poziomy inwalidacji."
+            )
+            res_v = ai_model.generate_content([prompt_v, pil_img])
+            st.session_state["vision_report"] = res_v.text
+            st.session_state["vision_model_name"] = model_name
+          except Exception as e:
+            st.error(f"Błąd analizy: {e}")
+      else:
+        st.error("Brak klucza API w sekretach Streamlit Cloud.")
+
+  if st.session_state.get("vision_report"):
+    st.markdown("---")
+    st.markdown(
+        f"""<div class="hero-report-card">
+        <h3 style="color:#38bdf8; margin:0 0 10px 0;">VISION AUDIT VERDICT</h3>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(st.session_state["vision_report"])
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ==============================================================================
+# MODUŁ 5: DZIENNIK HANDLOWY (Z NOTATKAMI, SCREENAMI I EDYCJĄ)
 # ==============================================================================
 elif menu == "Dziennik handlowy":
   st.title("📖 Tactical Trading Journal & Multi-Chart Vault")
@@ -284,7 +900,6 @@ elif menu == "Dziennik handlowy":
       "📜 Historia, Notatki & Edycja (Vault)",
   ])
 
-  # --- ZAKŁADKA 1: DODAWANIE ---
   with tab1:
     with st.form("new_trade_form", clear_on_submit=True):
       tc1, tc2, tc3 = st.columns(3)
@@ -371,7 +986,6 @@ elif menu == "Dziennik handlowy":
         st.success("Transakcja zapisana pomyślnie!")
         st.rerun()
 
-  # --- ZAKŁADKA 2: HISTORIA Z NOTATKAMI, SCREENAMI I OPCJĄ EDYCJI ---
   with tab2:
     st.subheader("📜 Twoje Transakcje, Notatki i Zrzuty Ekranu")
     df_trades = pd.read_csv(JOURNAL_FILE)
@@ -379,7 +993,6 @@ elif menu == "Dziennik handlowy":
     if df_trades.empty:
       st.info("Brak zapisanych pozycji w bazie.")
     else:
-      # Wyświetlenie pełnej tabeli podsumowującej
       pola = [
           c
           for c in [
@@ -427,11 +1040,8 @@ elif menu == "Dziennik handlowy":
             else:
               st.caption("Brak załączonych zrzutów ekranu dla tej pozycji.")
 
-          # Wbudowany panel edycji bezpośrednio w karcie transakcji
           with st.form(key=f"edit_form_{trade_id}"):
-            st.markdown(
-                f"**✏️ Korekta / Edycja wpisu (ID: {trade_id})**"
-            )
+            st.markdown(f"**✏️ Korekta / Edycja wpisu (ID: {trade_id})**")
             e_status = st.selectbox(
                 "Zmień wynik",
                 ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"],
@@ -502,6 +1112,9 @@ elif menu == "Dziennik handlowy":
               st.warning("Usunięto transakcję.")
               st.rerun()
 
+# ==============================================================================
+# POZOSTAŁE MODUŁY
+# ==============================================================================
 elif menu == "Krzywa kapitału (Netto R)":
   st.title("Krzywa kapitału (Netto R)")
 elif menu == "Kursy na dziś":
