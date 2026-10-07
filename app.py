@@ -259,10 +259,6 @@ with st.sidebar:
 # ==============================================================================
 if menu == "Taktyczny terminal na żywo i interfejs HUD mapy":
   st.title("🖥️ Taktyczny terminal na żywo i interfejs HUD mapy")
-  st.info(
-      "Moduł terminala aktywny. Wybierz zakładkę w menu bocznym, aby przejść do"
-      " edycji dziennika."
-  )
 
 elif menu == "Poranny raport i skanowanie dzienne":
   st.title("Morning Report & Directional Call")
@@ -274,19 +270,18 @@ elif menu == "👁️ Inspektor wykresów wizji AI":
   st.title("AI Vision Chart Inspector")
 
 # ==============================================================================
-# MODUŁ: DZIENNIK HANDLOWY Z EDYCJĄ I DODAWANIEM SCREENÓW
+# MODUŁ: DZIENNIK HANDLOWY (Z PEŁNYM PODGLĄDEM NOTATEK, SCREENÓW I EDYCJĄ)
 # ==============================================================================
 elif menu == "Dziennik handlowy":
   st.title("📖 Tactical Trading Journal & Multi-Chart Vault")
   st.caption(
-      "Ewidencja pozycji C.E.T., dodawanie nowych, edycja błędów oraz zarządzanie"
-      " zrzutami ekranu"
+      "Ewidencja pozycji C.E.T., podgląd notatek, galeria screenów oraz"
+      " edycja/korekta błędów"
   )
 
-  tab1, tab2, tab3 = st.tabs([
+  tab1, tab2 = st.tabs([
       "➕ Dodaj nową pozycję",
-      "📜 Historia Transakcji & Przegląd",
-      "✏️ Edycja / Usuwanie i Screeny",
+      "📜 Historia, Notatki & Edycja (Vault)",
   ])
 
   # --- ZAKŁADKA 1: DODAWANIE ---
@@ -376,130 +371,136 @@ elif menu == "Dziennik handlowy":
         st.success("Transakcja zapisana pomyślnie!")
         st.rerun()
 
-  # --- ZAKŁADKA 2: HISTORIA ---
+  # --- ZAKŁADKA 2: HISTORIA Z NOTATKAMI, SCREENAMI I OPCJĄ EDYCJI ---
   with tab2:
+    st.subheader("📜 Twoje Transakcje, Notatki i Zrzuty Ekranu")
     df_trades = pd.read_csv(JOURNAL_FILE)
+
     if df_trades.empty:
       st.info("Brak zapisanych pozycji w bazie.")
     else:
-      st.dataframe(df_trades, use_container_width=True)
+      # Wyświetlenie pełnej tabeli podsumowującej
+      pola = [
+          c
+          for c in [
+              "data",
+              "instrument",
+              "kierunek",
+              "model",
+              "status",
+              "wynik_r",
+              "jakosc",
+          ]
+          if c in df_trades.columns
+      ]
+      st.dataframe(df_trades[pola], use_container_width=True)
+      st.markdown("---")
+      st.write("### 🔍 Szczegóły transakcji, notatki i miniatury screenów:")
 
-  # --- ZAKŁADKA 3: EDYCJA, KOREKTA I DODAWANIE SCREENÓW ---
-  with tab3:
-    st.subheader("✏️ Edytuj lub usuń wpis w dzienniku")
-    df_trades = pd.read_csv(JOURNAL_FILE)
+      for idx, row in df_trades.iloc[::-1].iterrows():
+        trade_id = row["id"]
+        with st.expander(
+            f"{row['data']} | {row['instrument']} {row['kierunek']} — Wynik:"
+            f" {row['wynik_r']} R ({row['status']})"
+        ):
+          c_d1, c_d2 = st.columns([1, 2])
+          with c_d1:
+            st.write(f"**Model:** {row['model']}")
+            st.write(f"**Klasa jakości:** {row['jakosc']}")
+            st.write(f"**Notatki:** {row['notatki']}")
 
-    if df_trades.empty:
-      st.info("Brak pozycji do edycji.")
-    else:
-      # Tworzymy czytelną listę transakcji do wyboru
-      df_trades["label"] = (
-          df_trades["id"].astype(str)
-          + " | "
-          + df_trades["data"].astype(str)
-          + " | "
-          + df_trades["instrument"].astype(str)
-          + " "
-          + df_trades["kierunek"].astype(str)
-          + " (Wynik: "
-          + df_trades["wynik_r"].astype(str)
-          + "R)"
-      )
-      wybrana_etykieta = st.selectbox(
-          "Wybierz transakcję do korekty:", df_trades["label"].tolist()
-      )
-
-      if wybrana_etykieta:
-        wybrany_id = int(wybrana_etykieta.split(" | ")[0])
-        wiersz = df_trades[df_trades["id"] == wybrany_id].iloc[0]
-
-        with st.form("edit_trade_form"):
-          st.write(f"Edytujesz transakcję ID: {wybrany_id}")
-          e_inst = st.text_input("Instrument", value=str(wiersz["instrument"]))
-          e_side = st.selectbox(
-              "Kierunek",
-              ["LONG 🟢", "SHORT 🔴"],
-              index=(
-                  0
-                  if "LONG" in str(wiersz["kierunek"])
-                  else (1 if "SHORT" in str(wiersz["kierunek"]) else 0)
-              ),
-          )
-          e_status = st.selectbox(
-              "Wynik",
-              ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"],
-              index=["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"].index(
-                  wiersz["status"]
-                  if wiersz["status"]
-                  in ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"]
-                  else "WIN"
-              ),
-          )
-          e_rr = st.number_input(
-              "Wynik w R", value=float(wiersz["wynik_r"]), step=0.1
-          )
-          e_notes = st.text_area("Notatki", value=str(wiersz["notatki"]))
-
-          new_extra_imgs = st.file_uploader(
-              "Dołącz dodatkowe zrzuty ekranu",
-              type=["png", "jpg", "jpeg", "webp"],
-              accept_multiple_files=True,
-          )
-
-          col_save, col_del = st.columns(2)
-          with col_save:
-            update_btn = st.form_submit_button("ZAPISZ ZMIANY")
-          with col_del:
-            delete_btn = st.form_submit_button(
-                "USUŃ TĘ TRANSAKCJĘ", type="secondary"
+          with c_d2:
+            raw_imgs = (
+                str(row["zdjecie"]) if pd.notna(row["zdjecie"]) else ""
             )
-
-          if update_btn:
-            # Pobieramy stare ścieżki zdjęć
-            stare_zdjecia = (
-                str(wiersz["zdjecie"])
-                if pd.notna(wiersz["zdjecie"]) and wiersz["zdjecie"] != "nan"
-                else ""
-            )
-            nowe_sciezki = [
-                p.strip() for p in stare_zdjecia.split(";") if p.strip()
+            img_list = [
+                p.strip()
+                for p in raw_imgs.split(";")
+                if p.strip() and os.path.exists(p.strip())
             ]
+            if img_list:
+              st.write("**Zrzuty ekranu:**")
+              grid_cols = st.columns(min(len(img_list), 3))
+              for i, p in enumerate(img_list):
+                with grid_cols[i % 3]:
+                  st.image(p, caption=f"Screen #{i+1}", use_container_width=True)
+            else:
+              st.caption("Brak załączonych zrzutów ekranu dla tej pozycji.")
 
-            # Dodajemy nowe pliki, jeśli zostały wgrane
-            if new_extra_imgs:
-              for idx, img in enumerate(new_extra_imgs):
-                ext = img.name.split(".")[-1]
-                img_path = os.path.join(
-                    IMAGES_DIR, f"trade_{wybrany_id}_add_{idx}.{ext}"
-                )
-                with open(img_path, "wb") as f:
-                  f.write(img.getbuffer())
-                nowe_sciezki.append(img_path)
-
-            df_trades.loc[df_trades["id"] == wybrany_id, "instrument"] = e_inst
-            df_trades.loc[df_trades["id"] == wybrany_id, "kierunek"] = e_side
-            df_trades.loc[df_trades["id"] == wybrany_id, "status"] = e_status
-            df_trades.loc[df_trades["id"] == wybrany_id, "wynik_r"] = e_rr
-            df_trades.loc[df_trades["id"] == wybrany_id, "notatki"] = e_notes
-            df_trades.loc[df_trades["id"] == wybrany_id, "zdjecie"] = ";".join(
-                nowe_sciezki
+          # Wbudowany panel edycji bezpośrednio w karcie transakcji
+          with st.form(key=f"edit_form_{trade_id}"):
+            st.markdown(
+                f"**✏️ Korekta / Edycja wpisu (ID: {trade_id})**"
+            )
+            e_status = st.selectbox(
+                "Zmień wynik",
+                ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"],
+                index=(
+                    ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"].index(
+                        row["status"]
+                    )
+                    if row["status"]
+                    in ["WIN", "LOSS", "BE (Break Even)", "TRAIL STOP"]
+                    else 0
+                ),
+                key=f"status_{trade_id}",
+            )
+            e_rr = st.number_input(
+                "Zmień wynik w R",
+                value=float(row["wynik_r"]),
+                step=0.1,
+                key=f"rr_{trade_id}",
+            )
+            e_notes = st.text_area(
+                "Edytuj notatki",
+                value=str(row["notatki"]),
+                key=f"notes_{trade_id}",
+            )
+            new_img = st.file_uploader(
+                "Dołącz dodatkowy zrzut ekranu",
+                type=["png", "jpg", "jpeg", "webp"],
+                key=f"img_{trade_id}",
             )
 
-            # Usuwamy pomocniczą kolumnę 'label' przed zapisem do pliku CSV
-            if "label" in df_trades.columns:
-              df_trades = df_trades.drop(columns=["label"])
+            col_upd, col_del = st.columns(2)
+            with col_upd:
+              update_btn = st.form_submit_button("ZAPISZ ZMIANY W WPISIE")
+            with col_del:
+              delete_btn = st.form_submit_button(
+                  "USUŃ TEN WPIS", type="secondary"
+              )
 
-            df_trades.to_csv(JOURNAL_FILE, index=False)
-            st.success("Transakcja została pomyślnie zaktualizowana!")
-            st.rerun()
+            if update_btn:
+              stare_z = (
+                  str(row["zdjecie"])
+                  if pd.notna(row["zdjecie"]) and row["zdjecie"] != "nan"
+                  else ""
+              )
+              lista_z = [p.strip() for p in stare_z.split(";") if p.strip()]
+              if new_img is not None:
+                ext = new_img.name.split(".")[-1]
+                p_nowa = os.path.join(
+                    IMAGES_DIR, f"trade_{trade_id}_add_{int(time.time())}.{ext}"
+                )
+                with open(p_nowa, "wb") as f:
+                  f.write(new_img.getbuffer())
+                lista_z.append(p_nowa)
 
-          if delete_btn:
-            df_trades = df_trades[df_trades["id"] != wybrany_id]
-            if "label" in df_trades.columns:
-              df_trades = df_trades.drop(columns=["label"])
-            df_trades.to_csv(JOURNAL_FILE, index=False)
-            st.warning("Transakcja została trwale usunięta z bazy.")
-            st.rerun()
+              df_trades.loc[df_trades["id"] == trade_id, "status"] = e_status
+              df_trades.loc[df_trades["id"] == trade_id, "wynik_r"] = e_rr
+              df_trades.loc[df_trades["id"] == trade_id, "notatki"] = e_notes
+              df_trades.loc[df_trades["id"] == trade_id, "zdjecie"] = ";".join(
+                  lista_z
+              )
+              df_trades.to_csv(JOURNAL_FILE, index=False)
+              st.success("Zaktualizowano pomyślnie!")
+              st.rerun()
+
+            if delete_btn:
+              df_trades = df_trades[df_trades["id"] != trade_id]
+              df_trades.to_csv(JOURNAL_FILE, index=False)
+              st.warning("Usunięto transakcję.")
+              st.rerun()
 
 elif menu == "Krzywa kapitału (Netto R)":
   st.title("Krzywa kapitału (Netto R)")
